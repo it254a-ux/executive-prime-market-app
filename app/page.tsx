@@ -1,9 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-
-const APP_ID = '33C8pzDfszs5p4KQabqit';
-const DERIV_OAUTH_URL = `https://oauth.deriv.com/oauth2/authorize?app_id=${APP_ID}&l=en&brand=deriv`;
+import { DerivWSProvider, useDerivWSContext } from '@/components/custom/deriv-ws-provider';
 
 const navLinks = [
   { label: 'Dashboard',         icon: '🏠', href: 'dashboard' },
@@ -72,7 +70,69 @@ function ComingSoonPage({ label }: { label: string }) {
   );
 }
 
-export default function HomePage() {
+// ─── Auth-aware buttons — same visual style as before, real OAuth wiring now ──
+function AuthButtons() {
+  const { auth } = useDerivWSContext();
+  const { authState, activeAccount, login, signUp, logout } = auth;
+  const isAuthenticated = authState === 'authenticated';
+  const isAuthenticating = authState === 'authenticating';
+
+  if (isAuthenticated && activeAccount) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '13px' }}>
+          {Number(activeAccount.balance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {activeAccount.currency}
+        </span>
+        <button
+          onClick={logout}
+          style={{
+            padding: '7px 18px', borderRadius: '7px',
+            border: '1px solid rgba(201,168,76,0.5)', background: 'none',
+            color: '#c9a84c', fontSize: '13px', fontWeight: 600,
+            cursor: 'pointer', whiteSpace: 'nowrap'
+          }}
+        >
+          Log Out
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <button
+        onClick={login}
+        disabled={isAuthenticating}
+        style={{
+          padding: '7px 18px', borderRadius: '7px',
+          border: '1px solid rgba(201,168,76,0.5)', background: 'none',
+          color: '#c9a84c', fontSize: '13px', fontWeight: 600,
+          cursor: isAuthenticating ? 'not-allowed' : 'pointer',
+          opacity: isAuthenticating ? 0.6 : 1,
+          whiteSpace: 'nowrap'
+        }}
+      >
+        {isAuthenticating ? 'Logging in…' : 'Log In'}
+      </button>
+      <button
+        onClick={signUp}
+        disabled={isAuthenticating}
+        style={{
+          padding: '7px 18px', borderRadius: '7px',
+          background: 'linear-gradient(135deg, #b8962e, #e8c840)', border: 'none',
+          color: '#0a0a0a', fontSize: '13px', fontWeight: 700,
+          cursor: isAuthenticating ? 'not-allowed' : 'pointer',
+          opacity: isAuthenticating ? 0.6 : 1,
+          whiteSpace: 'nowrap'
+        }}
+      >
+        Sign Up
+      </button>
+    </div>
+  );
+}
+
+function HomePageInner() {
   const [activePage, setActivePage] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -131,21 +191,8 @@ export default function HomePage() {
 
         <div style={{ flex: 1 }} />
 
-        {/* Auth buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <a href={DERIV_OAUTH_URL} style={{
-            padding: '7px 18px', borderRadius: '7px',
-            border: '1px solid rgba(201,168,76,0.5)',
-            color: '#c9a84c', fontSize: '13px', fontWeight: 600,
-            textDecoration: 'none', whiteSpace: 'nowrap'
-          }}>Log In</a>
-          <a href="https://deriv.com/signup/" target="_blank" rel="noreferrer" style={{
-            padding: '7px 18px', borderRadius: '7px',
-            background: 'linear-gradient(135deg, #b8962e, #e8c840)',
-            color: '#0a0a0a', fontSize: '13px', fontWeight: 700,
-            textDecoration: 'none', whiteSpace: 'nowrap'
-          }}>Sign Up</a>
-        </div>
+        {/* Auth buttons — now wired to real Deriv OAuth via DerivWSProvider */}
+        <AuthButtons />
       </nav>
 
       {/* BODY */}
@@ -237,5 +284,13 @@ export default function HomePage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <DerivWSProvider>
+      <HomePageInner />
+    </DerivWSProvider>
   );
 }
