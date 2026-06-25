@@ -30,7 +30,7 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
       alignItems: 'center', justifyContent: 'center',
       color: '#fff', gap: '24px', padding: '40px'
     }}>
-      <img src="/logo.png" alt="ExecutivePrimeMarkets" style={{ height: '60px', width: 'auto' }} />
+      <img src="/logo.png" alt="ExecutivePrimeMarkets" style={{ height: '100px', width: 'auto' }} />
       <h1 style={{ color: '#c9a84c', fontSize: '28px', fontWeight: 700, margin: 0, textAlign: 'center' }}>
         Welcome to Executive Prime Markets
       </h1>
@@ -126,7 +126,7 @@ export default function HomePage() {
         <a href="/" style={{ textDecoration: 'none', flexShrink: 0 }}
           onClick={e => { e.preventDefault(); handleNavClick('dashboard'); }}>
           <img src="/logo.png" alt="ExecutivePrimeMarkets"
-            style={{ height: '34px', width: 'auto', display: 'block' }} />
+            style={{ height: '55px', width: 'auto', display: 'block' }} />
         </a>
 
         <div style={{ flex: 1 }} />
