@@ -5,11 +5,11 @@ import { getLogoSrc } from '@/lib/get-logo-src';
 import { inter, FONT_CLASS_MAP } from '@/lib/fonts';
 import { TemplateLayout } from '@/components/custom/template-layout';
 import { LogoSrcProvider } from '@/components/custom/logo-src-provider';
+import { KeepAlive } from '@/components/custom/keep-alive';
 import '@/app/globals.css';
 import './globals.css';
 import '@deriv-com/smartcharts-champion/dist/smartcharts.css';
 import './custom.css';
-
 // SmartCharts declares `font-family: IBM Plex Sans, sans-serif` internally.
 const ibmPlexSans = IBM_Plex_Sans({
   subsets: ['latin'],
@@ -17,7 +17,6 @@ const ibmPlexSans = IBM_Plex_Sans({
   variable: '--font-ibm-plex-sans',
   display: 'swap',
 });
-
 export function generateMetadata(): Metadata {
   const faviconUri = buildFaviconUri();
   return {
@@ -26,11 +25,9 @@ export function generateMetadata(): Metadata {
     ...(faviconUri ? { icons: { icon: faviconUri } } : {}),
   };
 }
-
 const fontClass =
   FONT_CLASS_MAP[process.env.NEXT_PUBLIC_FONT_FAMILY ?? 'Inter'] ??
   inter.className;
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const logoSrc = getLogoSrc();
   return (
@@ -38,6 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body
         className={`${fontClass} ${ibmPlexSans.variable} bg-background flex min-h-dvh flex-col overflow-hidden max-lg:h-dvh max-lg:overflow-hidden lg:block lg:h-auto lg:min-h-screen lg:overflow-x-hidden lg:overflow-y-auto`}
       >
+        <KeepAlive />
         <TemplateLayout>
           <LogoSrcProvider logoSrc={logoSrc}>{children}</LogoSrcProvider>
         </TemplateLayout>
