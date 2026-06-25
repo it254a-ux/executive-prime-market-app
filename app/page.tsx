@@ -7,7 +7,6 @@ const DERIV_OAUTH_URL = `https://oauth.deriv.com/oauth2/authorize?app_id=${APP_I
 
 const navLinks = [
   { label: 'Dashboard',         icon: '🏠', href: 'dashboard' },
-  { label: 'Accumulator',       icon: '📈', href: 'accumulator' },
   { label: 'Charts',            icon: '📊', href: 'charts' },
   { label: 'DTrader',           icon: '💹', href: 'dtrader' },
   { label: 'Analysis Tool',     icon: '🔍', href: 'analysis' },
@@ -18,7 +17,6 @@ const navLinks = [
 ];
 
 const iframePages: Record<string, string> = {
-  accumulator: 'https://epm-charts.onrender.com',
   charts:      'https://epm-charts.onrender.com',
   dtrader:     'https://epm-dtrader.onrender.com',
   analysis:    'https://epm-analysis.onrender.com',
@@ -41,7 +39,6 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
       </p>
       <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center', marginTop: '16px' }}>
         {[
-          { label: 'Accumulator', icon: '📈', page: 'accumulator' },
           { label: 'Charts',      icon: '📊', page: 'charts' },
           { label: 'DTrader',     icon: '💹', page: 'dtrader' },
           { label: 'Analysis',    icon: '🔍', page: 'analysis' },
