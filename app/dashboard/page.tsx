@@ -56,7 +56,7 @@ function LoginModal({ onClose }: { onClose: () => void }) {
           Log In with Deriv
         </a>
 
-        <a href="https://deriv.com/signup/" target="_blank" rel="noreferrer" style={{
+        <a href="https://partner-tracking.deriv.com/click?a=31302https://deriv.com/signup/o=1https://deriv.com/signup/c=3https://deriv.com/signup/link_id=1" target="_blank" rel="noreferrer" style={{
           display: 'block', width: '100%', padding: '13px',
           background: 'transparent', border: '1px solid rgba(201,168,76,0.35)',
           color: '#c9a84c', fontWeight: 600, fontSize: '14px',

@@ -29,7 +29,7 @@ export default function Page() {
         <div style={{ flex: 1 }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <a href={DERIV_OAUTH_URL} style={{ padding: '8px 22px', borderRadius: '7px', border: '1px solid rgba(201,168,76,0.5)', color: '#c9a84c', fontSize: '13px', fontWeight: 600, textDecoration: 'none' }}>Log In</a>
-          <a href="https://deriv.com/signup/" target="_blank" rel="noreferrer" style={{ padding: '8px 22px', borderRadius: '7px', background: 'linear-gradient(135deg, #b8962e, #e8c840)', color: '#0a0a0a', fontSize: '13px', fontWeight: 700, textDecoration: 'none' }}>Sign Up</a>
+          <a href="https://partner-tracking.deriv.com/click?a=31302https://deriv.com/signup/o=1https://deriv.com/signup/c=3https://deriv.com/signup/link_id=1" target="_blank" rel="noreferrer" style={{ padding: '8px 22px', borderRadius: '7px', background: 'linear-gradient(135deg, #b8962e, #e8c840)', color: '#0a0a0a', fontSize: '13px', fontWeight: 700, textDecoration: 'none' }}>Sign Up</a>
         </div>
       </nav>
 
