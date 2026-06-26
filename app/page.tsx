@@ -135,15 +135,15 @@ function HomePageInner() {
   const [activePage, setActivePage] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { auth } = useDerivWSContext();
-  const { authState, activeAccount } = auth;
+  const { authState, activeAccount, accessToken } = auth;
 
   // Build iframe URL — append token when authenticated so the child app
   // can log in automatically without a separate OAuth round-trip.
   const getIframeSrc = (page: string): string | null => {
     const base = iframeBases[page];
     if (!base) return null;
-    if (authState === 'authenticated' && activeAccount?.token) {
-      return `${base}?token=${encodeURIComponent(activeAccount.token)}`;
+    if (authState === 'authenticated' && accessToken) {
+      return `${base}?token=${encodeURIComponent(accessToken)}`;
     }
     return base;
   };
