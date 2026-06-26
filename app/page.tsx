@@ -14,11 +14,11 @@ const navLinks = [
   { label: 'Trading Tutorials', icon: '🎓', href: 'tutorials' },
 ];
 
-const iframePages: Record<string, string> = {
-  charts:      'https://epm-charts.onrender.com',
-  dtrader:     'https://epm-dtrader.onrender.com',
-  analysis:    'https://epm-analysis.onrender.com',
-  botbuilder:  'https://epm-botbuilder.onrender.com',
+const iframeBases: Record<string, string> = {
+  charts:     'https://epm-charts.onrender.com',
+  dtrader:    'https://epm-dtrader.onrender.com',
+  analysis:   'https://epm-analysis.onrender.com',
+  botbuilder: 'https://epm-botbuilder.onrender.com',
 };
 
 function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
@@ -70,7 +70,6 @@ function ComingSoonPage({ label }: { label: string }) {
   );
 }
 
-// ─── Auth-aware buttons — same visual style as before, real OAuth wiring now ──
 function AuthButtons() {
   const { auth } = useDerivWSContext();
   const { authState, activeAccount, login, signUp, logout } = auth;
@@ -135,8 +134,21 @@ function AuthButtons() {
 function HomePageInner() {
   const [activePage, setActivePage] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { auth } = useDerivWSContext();
+  const { authState, activeAccount } = auth;
 
-  const iframeSrc = iframePages[activePage];
+  // Build iframe URL — append token when authenticated so the child app
+  // can log in automatically without a separate OAuth round-trip.
+  const getIframeSrc = (page: string): string | null => {
+    const base = iframeBases[page];
+    if (!base) return null;
+    if (authState === 'authenticated' && activeAccount?.token) {
+      return `${base}?token=${encodeURIComponent(activeAccount.token)}`;
+    }
+    return base;
+  };
+
+  const iframeSrc = getIframeSrc(activePage);
 
   const handleNavClick = (href: string) => {
     setActivePage(href);
@@ -191,14 +203,12 @@ function HomePageInner() {
 
         <div style={{ flex: 1 }} />
 
-        {/* Auth buttons — now wired to real Deriv OAuth via DerivWSProvider */}
         <AuthButtons />
       </nav>
 
       {/* BODY */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
 
-        {/* OVERLAY — tap outside to close sidebar */}
         {sidebarOpen && (
           <div
             onClick={() => setSidebarOpen(false)}
@@ -266,11 +276,11 @@ function HomePageInner() {
           </div>
         </aside>
 
-        {/* MAIN CONTENT — always full width */}
+        {/* MAIN CONTENT */}
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', width: '100%' }}>
           {iframeSrc ? (
             <iframe
-              key={activePage}
+              key={`${activePage}-${authState}`}
               src={iframeSrc}
               style={{ width: '100%', height: '100%', border: 'none', flex: 1 }}
               title={activePage}
