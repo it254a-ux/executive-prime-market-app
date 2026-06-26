@@ -101,6 +101,7 @@ export interface UseAuthReturn {
   accounts: DerivAccount[];
   activeAccount: DerivAccount | null;
   activeAccountId: string | null;
+  accessToken: string | null;
   wsUrl: string | undefined;
   login: () => Promise<void>;
   signUp: () => Promise<void>;
@@ -121,6 +122,10 @@ export function useAuth(): UseAuthReturn {
     if (typeof window === 'undefined') return null;
     return getActiveLoginId() ?? null;
   });
+  const [accessToken, setAccessToken] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return getAuthInfo()?.access_token ?? null;
+  });
   const [wsUrl, setWsUrl] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const initRef = useRef(false);
@@ -138,6 +143,8 @@ export function useAuth(): UseAuthReturn {
   // Complete auth: fetch accounts → get OTP → set WS URL
   const completeAuth = useCallback(
     async (authInfo: AuthInfo) => {
+      setAccessToken(authInfo.access_token);
+
       const fetchedAccounts = await fetchAccounts(authInfo, getAuthConfig().clientId);
       setAccounts(fetchedAccounts);
 
@@ -200,6 +207,7 @@ export function useAuth(): UseAuthReturn {
         // Valid stored session — restore accounts and get fresh OTP
         const storedAccounts = getDerivAccounts();
         if (storedAccounts && storedAccounts.length > 0) {
+          setAccessToken(storedAuth.access_token);
           setAccounts(storedAccounts);
           const loginId = getActiveLoginId() ?? storedAccounts[0].account_id;
           setActiveAccountId(loginId);
@@ -297,6 +305,7 @@ export function useAuth(): UseAuthReturn {
     coreLogout();
     setAccounts([]);
     setActiveAccountId(null);
+    setAccessToken(null);
     setWsUrl(undefined);
     setAuthState('unauthenticated');
     setError(null);
@@ -332,6 +341,7 @@ export function useAuth(): UseAuthReturn {
     accounts,
     activeAccount,
     activeAccountId,
+    accessToken,
     wsUrl,
     login,
     signUp,
