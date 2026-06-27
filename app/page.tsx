@@ -15,10 +15,10 @@ const navLinks = [
 ];
 
 const iframeBases: Record<string, string> = {
-  charts:     'https://epm-charts.onrender.com',
-  dtrader:    'https://epm-dtrader.onrender.com',
-  analysis:   'https://epm-analysis.onrender.com',
-  botbuilder: 'https://epm-botbuilder.onrender.com',
+  charts:     'https://charts-accumulators-app.vercel.app',
+  dtrader:    'https://rise-fall-epm-dtrader.vercel.app',
+  analysis:   'https://digits-epm-analysis.vercel.app',
+  botbuilder: 'https://epm-botbuilder.vercel.app',
 };
 
 function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
@@ -137,8 +137,6 @@ function HomePageInner() {
   const { auth } = useDerivWSContext();
   const { authState, activeAccount, accessToken } = auth;
 
-  // Build iframe URL — append token when authenticated so the child app
-  // can log in automatically without a separate OAuth round-trip.
   const getIframeSrc = (page: string): string | null => {
     const base = iframeBases[page];
     if (!base) return null;
@@ -171,7 +169,6 @@ function HomePageInner() {
         padding: '0 16px', flexShrink: 0,
         backdropFilter: 'blur(12px)', gap: '12px'
       }}>
-        {/* Hamburger */}
         <button
           onClick={() => setSidebarOpen(o => !o)}
           style={{
@@ -194,7 +191,6 @@ function HomePageInner() {
           ))}
         </button>
 
-        {/* Logo */}
         <a href="/" style={{ textDecoration: 'none', flexShrink: 0 }}
           onClick={e => { e.preventDefault(); handleNavClick('dashboard'); }}>
           <img src="/logo.png" alt="ExecutivePrimeMarkets"
