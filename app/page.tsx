@@ -18,7 +18,7 @@ const iframeBases: Record<string, string> = {
   charts:     'https://charts-accumulators-app.vercel.app',
   dtrader:    'https://rise-fall-epm-dtrader.vercel.app',
   analysis:   'https://digits-epm-analysis.vercel.app',
-  botbuilder: 'https://epm-botbuilder-uo51.vercel.app',
+  botbuilder: 'https://bot.executiveprimemarkets.site',
 };
 
 function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
