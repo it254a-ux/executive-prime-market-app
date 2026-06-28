@@ -69,6 +69,88 @@ function ComingSoonPage({ label }: { label: string }) {
   );
 }
 
+// NEW: dropdown that lists every linked Deriv account (demo + real) and lets
+// the user switch between them. This was missing before — switchAccount()
+// existed in useAuth but nothing in the UI ever called it.
+function AccountSwitcher() {
+  const { auth } = useDerivWSContext();
+  const { accounts, activeAccount, activeAccountId, switchAccount } = auth;
+  const [open, setOpen] = useState(false);
+
+  if (!activeAccount || accounts.length === 0) return null;
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: '8px',
+          padding: '7px 12px', borderRadius: '7px',
+          border: '1px solid rgba(201,168,76,0.35)', background: 'rgba(201,168,76,0.06)',
+          color: '#fff', fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap'
+        }}
+      >
+        <span style={{
+          padding: '2px 7px', borderRadius: '4px', fontSize: '10px', fontWeight: 700,
+          background: activeAccount.account_type === 'real' ? 'rgba(76,201,120,0.18)' : 'rgba(201,168,76,0.18)',
+          color: activeAccount.account_type === 'real' ? '#4cc978' : '#c9a84c',
+        }}>
+          {activeAccount.account_type === 'real' ? 'REAL' : 'DEMO'}
+        </span>
+        <span style={{ color: 'rgba(255,255,255,0.6)' }}>
+          {Number(activeAccount.balance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {activeAccount.currency}
+        </span>
+        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>▾</span>
+      </button>
+
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 250 }} />
+          <div style={{
+            position: 'absolute', top: 'calc(100% + 6px)', right: 0,
+            minWidth: '220px', background: '#13130f',
+            border: '1px solid rgba(201,168,76,0.25)', borderRadius: '10px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.5)', zIndex: 260, overflow: 'hidden'
+          }}>
+            {accounts.map(acc => {
+              const isActive = acc.account_id === activeAccountId;
+              return (
+                <button
+                  key={acc.account_id}
+                  onClick={async () => {
+                    setOpen(false);
+                    if (!isActive) await switchAccount(acc.account_id);
+                  }}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    gap: '10px', padding: '10px 14px', background: isActive ? 'rgba(201,168,76,0.08)' : 'none',
+                    border: 'none', borderBottom: '1px solid rgba(255,255,255,0.05)',
+                    color: '#fff', fontSize: '13px', cursor: 'pointer', textAlign: 'left'
+                  }}
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{
+                      padding: '2px 7px', borderRadius: '4px', fontSize: '10px', fontWeight: 700,
+                      background: acc.account_type === 'real' ? 'rgba(76,201,120,0.18)' : 'rgba(201,168,76,0.18)',
+                      color: acc.account_type === 'real' ? '#4cc978' : '#c9a84c',
+                    }}>
+                      {acc.account_type === 'real' ? 'REAL' : 'DEMO'}
+                    </span>
+                    {acc.account_id}
+                  </span>
+                  <span style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    {Number(acc.balance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {acc.currency}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function AuthButtons() {
   const { auth } = useDerivWSContext();
   const { authState, activeAccount, login, signUp, logout } = auth;
@@ -78,9 +160,7 @@ function AuthButtons() {
   if (isAuthenticated && activeAccount) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '13px' }}>
-          {Number(activeAccount.balance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {activeAccount.currency}
-        </span>
+        <AccountSwitcher />
         <button
           onClick={logout}
           style={{
