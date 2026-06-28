@@ -15,10 +15,9 @@ const navLinks = [
 ];
 
 const iframeBases: Record<string, string> = {
-  charts:     'https://charts-accumulators-app.vercel.app',
-  dtrader:    'https://rise-fall-epm-dtrader.vercel.app',
-  analysis:   'https://digits-epm-analysis.vercel.app',
-  botbuilder: 'https://bot.executiveprimemarkets.site',
+  charts:   'https://charts-accumulators-app.vercel.app',
+  dtrader:  'https://rise-fall-epm-dtrader.vercel.app',
+  analysis: 'https://digits-epm-analysis.vercel.app',
 };
 
 function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
@@ -135,7 +134,7 @@ function HomePageInner() {
   const [activePage, setActivePage] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { auth } = useDerivWSContext();
-  const { authState, activeAccount, accessToken } = auth;
+  const { authState, accessToken } = auth;
 
   const getIframeSrc = (page: string): string | null => {
     const base = iframeBases[page];
@@ -149,6 +148,10 @@ function HomePageInner() {
   const iframeSrc = getIframeSrc(activePage);
 
   const handleNavClick = (href: string) => {
+    if (href === 'botbuilder') {
+      window.open('https://bot.executiveprimemarkets.site', '_blank');
+      return;
+    }
     setActivePage(href);
     setSidebarOpen(false);
   };
@@ -230,7 +233,7 @@ function HomePageInner() {
           transition: 'transform 0.25s ease',
         }}>
           {navLinks.map(link => (
-            <a
+            
               key={link.label}
               href="#"
               onClick={e => { e.preventDefault(); handleNavClick(link.href); }}
