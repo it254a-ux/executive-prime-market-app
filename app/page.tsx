@@ -131,7 +131,13 @@ function AuthButtons() {
 }
 
 function HomePageInner() {
-  const [activePage, setActivePage] = useState('dashboard');
+  const [activePage, setActivePage] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.replace('/', '').trim();
+      return path || 'dashboard';
+    }
+    return 'dashboard';
+  });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { auth } = useDerivWSContext();
   const { authState, accessToken } = auth;
@@ -154,6 +160,8 @@ function HomePageInner() {
     }
     setActivePage(href);
     setSidebarOpen(false);
+    const newUrl = href === 'dashboard' ? '/' : `/${href}`;
+    window.history.pushState(null, '', newUrl);
   };
 
   return (
@@ -233,7 +241,7 @@ function HomePageInner() {
           transition: 'transform 0.25s ease',
         }}>
           {navLinks.map(link => (
-            
+            <a
               key={link.label}
               href="#"
               onClick={e => { e.preventDefault(); handleNavClick(link.href); }}
