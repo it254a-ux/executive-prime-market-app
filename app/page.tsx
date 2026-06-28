@@ -1,329 +1,398 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  initiateLogin,
-  initiateSignUp,
-  handleOAuthCallback,
-  refreshAccessToken,
-  fetchAccounts,
-  getWebSocketOTP,
-  logout as coreLogout,
-  getAuthInfo,
-  getDerivAccounts,
-  getActiveLoginId,
-  setActiveLoginId,
-  setAccountType,
-  clearAllAuthData,
-  parseReferralLink,
-  parseLandingParams,
-  resolveReferralViaProxy,
-} from '@deriv/core';
-import type { AuthInfo, DerivAccount, AuthState, AuthConfig } from '@deriv/core';
+import { useState } from 'react';
+import { DerivWSProvider, useDerivWSContext } from '@/components/custom/deriv-ws-provider';
 
-function getAuthConfig(): AuthConfig {
-  const config: AuthConfig = {
-    clientId: process.env.NEXT_PUBLIC_DERIV_APP_ID ?? '',
-    redirectUri:
-      process.env.NEXT_PUBLIC_DERIV_REDIRECT_URI ??
-      (typeof window !== 'undefined' ? window.location.origin : ''),
+const navLinks = [
+  { label: 'Dashboard',         icon: '🏠', href: 'dashboard' },
+  { label: 'Charts',            icon: '📊', href: 'charts' },
+  { label: 'DTrader',           icon: '💹', href: 'dtrader' },
+  { label: 'Analysis Tool',     icon: '🔍', href: 'analysis' },
+  { label: 'Bot Builder',       icon: '🤖', href: 'botbuilder' },
+  { label: 'Free Bots by EPM',  icon: '🎁', href: 'freebots' },
+  { label: 'Copy Trading',      icon: '🔗', href: 'copytrading' },
+  { label: 'Trading Tutorials', icon: '🎓', href: 'tutorials' },
+];
+
+const iframeBases: Record<string, string> = {
+  charts:   'https://charts-accumulators-app.vercel.app',
+  dtrader:  'https://rise-fall-epm-dtrader.vercel.app',
+  analysis: 'https://digits-epm-analysis.vercel.app',
+};
+
+function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
+  return (
+    <div style={{
+      flex: 1, display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      color: '#fff', gap: '24px', padding: '40px'
+    }}>
+      <img src="/logo.png" alt="ExecutivePrimeMarkets" style={{ height: '100px', width: 'auto' }} />
+      <h1 style={{ color: '#c9a84c', fontSize: '28px', fontWeight: 700, margin: 0, textAlign: 'center' }}>
+        Welcome to Executive Prime Markets
+      </h1>
+      <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '15px', textAlign: 'center', maxWidth: '480px', margin: 0 }}>
+        Your all-in-one trading platform powered by Deriv. Use the menu to navigate to your tools.
+      </p>
+      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center', marginTop: '16px' }}>
+        {[
+          { label: 'Charts',      icon: '📊', page: 'charts' },
+          { label: 'DTrader',     icon: '💹', page: 'dtrader' },
+          { label: 'Analysis',    icon: '🔍', page: 'analysis' },
+          { label: 'Bot Builder', icon: '🤖', page: 'botbuilder' },
+        ].map(card => (
+          <div key={card.page} onClick={() => onNavigate(card.page)} style={{
+            background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.2)',
+            borderRadius: '12px', padding: '24px 28px', cursor: 'pointer',
+            textAlign: 'center', minWidth: '100px'
+          }}>
+            <div style={{ fontSize: '32px' }}>{card.icon}</div>
+            <div style={{ color: '#c9a84c', fontSize: '13px', fontWeight: 600, marginTop: '8px' }}>{card.label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ComingSoonPage({ label }: { label: string }) {
+  return (
+    <div style={{
+      flex: 1, display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      color: '#fff', gap: '16px'
+    }}>
+      <div style={{ fontSize: '48px' }}>🚧</div>
+      <h2 style={{ color: '#c9a84c', margin: 0 }}>{label}</h2>
+      <p style={{ color: 'rgba(255,255,255,0.4)', margin: 0 }}>Coming soon — check back shortly.</p>
+    </div>
+  );
+}
+
+// NEW: dropdown that lists every linked Deriv account (demo + real) and lets
+// the user switch between them. This was missing before — switchAccount()
+// existed in useAuth but nothing in the UI ever called it.
+function AccountSwitcher() {
+  const { auth } = useDerivWSContext();
+  const { accounts, activeAccount, activeAccountId, switchAccount } = auth;
+  const [open, setOpen] = useState(false);
+
+  if (!activeAccount || accounts.length === 0) return null;
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: '8px',
+          padding: '7px 12px', borderRadius: '7px',
+          border: '1px solid rgba(201,168,76,0.35)', background: 'rgba(201,168,76,0.06)',
+          color: '#fff', fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap'
+        }}
+      >
+        <span style={{
+          padding: '2px 7px', borderRadius: '4px', fontSize: '10px', fontWeight: 700,
+          background: activeAccount.account_type === 'real' ? 'rgba(76,201,120,0.18)' : 'rgba(201,168,76,0.18)',
+          color: activeAccount.account_type === 'real' ? '#4cc978' : '#c9a84c',
+        }}>
+          {activeAccount.account_type === 'real' ? 'REAL' : 'DEMO'}
+        </span>
+        <span style={{ color: 'rgba(255,255,255,0.6)' }}>
+          {Number(activeAccount.balance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {activeAccount.currency}
+        </span>
+        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>▾</span>
+      </button>
+
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 250 }} />
+          <div style={{
+            position: 'absolute', top: 'calc(100% + 6px)', right: 0,
+            minWidth: '220px', background: '#13130f',
+            border: '1px solid rgba(201,168,76,0.25)', borderRadius: '10px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.5)', zIndex: 260, overflow: 'hidden'
+          }}>
+            {accounts.map(acc => {
+              const isActive = acc.account_id === activeAccountId;
+              return (
+                <button
+                  key={acc.account_id}
+                  onClick={async () => {
+                    setOpen(false);
+                    if (!isActive) await switchAccount(acc.account_id);
+                  }}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    gap: '10px', padding: '10px 14px', background: isActive ? 'rgba(201,168,76,0.08)' : 'none',
+                    border: 'none', borderBottom: '1px solid rgba(255,255,255,0.05)',
+                    color: '#fff', fontSize: '13px', cursor: 'pointer', textAlign: 'left'
+                  }}
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{
+                      padding: '2px 7px', borderRadius: '4px', fontSize: '10px', fontWeight: 700,
+                      background: acc.account_type === 'real' ? 'rgba(76,201,120,0.18)' : 'rgba(201,168,76,0.18)',
+                      color: acc.account_type === 'real' ? '#4cc978' : '#c9a84c',
+                    }}>
+                      {acc.account_type === 'real' ? 'REAL' : 'DEMO'}
+                    </span>
+                    {acc.account_id}
+                  </span>
+                  <span style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    {Number(acc.balance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {acc.currency}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function AuthButtons() {
+  const { auth } = useDerivWSContext();
+  const { authState, activeAccount, login, signUp, logout } = auth;
+  const isAuthenticated = authState === 'authenticated';
+  const isAuthenticating = authState === 'authenticating';
+
+  if (isAuthenticated && activeAccount) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <AccountSwitcher />
+        <button
+          onClick={logout}
+          style={{
+            padding: '7px 18px', borderRadius: '7px',
+            border: '1px solid rgba(201,168,76,0.5)', background: 'none',
+            color: '#c9a84c', fontSize: '13px', fontWeight: 600,
+            cursor: 'pointer', whiteSpace: 'nowrap'
+          }}
+        >
+          Log Out
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <button
+        onClick={login}
+        disabled={isAuthenticating}
+        style={{
+          padding: '7px 18px', borderRadius: '7px',
+          border: '1px solid rgba(201,168,76,0.5)', background: 'none',
+          color: '#c9a84c', fontSize: '13px', fontWeight: 600,
+          cursor: isAuthenticating ? 'not-allowed' : 'pointer',
+          opacity: isAuthenticating ? 0.6 : 1,
+          whiteSpace: 'nowrap'
+        }}
+      >
+        {isAuthenticating ? 'Logging in…' : 'Log In'}
+      </button>
+      <button
+        onClick={signUp}
+        disabled={isAuthenticating}
+        style={{
+          padding: '7px 18px', borderRadius: '7px',
+          background: 'linear-gradient(135deg, #b8962e, #e8c840)', border: 'none',
+          color: '#0a0a0a', fontSize: '13px', fontWeight: 700,
+          cursor: isAuthenticating ? 'not-allowed' : 'pointer',
+          opacity: isAuthenticating ? 0.6 : 1,
+          whiteSpace: 'nowrap'
+        }}
+      >
+        Sign Up
+      </button>
+    </div>
+  );
+}
+
+function HomePageInner() {
+  const [activePage, setActivePage] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.replace('/', '').trim();
+      return path || 'dashboard';
+    }
+    return 'dashboard';
+  });
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { auth } = useDerivWSContext();
+  const { authState, accessToken, activeAccountId } = auth;
+
+  // Pass the active account along with the token so the iframe sub-app logs
+  // straight into the SAME account selected on the homepage (real or demo),
+  // instead of always defaulting to the first account in its own list.
+  const getIframeSrc = (page: string): string | null => {
+    const base = iframeBases[page];
+    if (!base) return null;
+    if (authState === 'authenticated' && accessToken) {
+      const params = new URLSearchParams({ token: accessToken });
+      if (activeAccountId) params.set('acct', activeAccountId);
+      return `${base}?${params.toString()}`;
+    }
+    return base;
   };
 
-  const scopesEnv = process.env.NEXT_PUBLIC_DERIV_OAUTH_SCOPES ?? '';
-  if (scopesEnv) {
-    config.scopes = scopesEnv
-      .split(',')
-      .map(s => s.trim())
-      .join(' ');
-  }
+  const iframeSrc = getIframeSrc(activePage);
 
-  const referralLink = process.env.NEXT_PUBLIC_DERIV_REFERRAL_LINK ?? '';
-  if (referralLink) {
-    const referral = parseReferralLink(referralLink);
-    if (referral) {
-      config.affiliateToken = referral.affiliateToken;
-      config.affiliateTokenParam = referral.affiliateTokenParam;
-      config.utmCampaign = referral.utmCampaign;
-      config.utmSource = referral.utmSource;
-      config.utmMedium = referral.utmMedium;
+  const handleNavClick = (href: string) => {
+    if (href === 'botbuilder') {
+      window.open('https://bot.executiveprimemarkets.site', '_blank', 'noopener,noreferrer');
+      return;
     }
-  }
-
-  const landing = parseLandingParams();
-  if (landing) {
-    if (landing.affiliateToken) {
-      config.affiliateToken = landing.affiliateToken;
-      config.affiliateTokenParam = landing.affiliateTokenParam;
-    }
-    if (landing.utmSource) config.utmSource = landing.utmSource;
-    if (landing.utmMedium) config.utmMedium = landing.utmMedium;
-    if (landing.utmCampaign) config.utmCampaign = landing.utmCampaign;
-  }
-
-  return config;
-}
-
-async function getAuthConfigWithReferral(): Promise<AuthConfig> {
-  const config = getAuthConfig();
-  if (!config.affiliateToken) {
-    try {
-      const referralLink = process.env.NEXT_PUBLIC_DERIV_REFERRAL_LINK ?? '';
-      const resolved = await resolveReferralViaProxy(referralLink);
-      if (resolved) {
-        config.affiliateToken = resolved.affiliateToken;
-        config.affiliateTokenParam = resolved.affiliateTokenParam;
-        if (resolved.utmSource) config.utmSource = resolved.utmSource;
-        if (resolved.utmMedium) config.utmMedium = resolved.utmMedium;
-        if (resolved.utmCampaign) config.utmCampaign = resolved.utmCampaign;
-      }
-    } catch {
-      // Never block login on attribution resolution.
-    }
-  }
-  return config;
-}
-
-export interface UseAuthReturn {
-  authState: AuthState;
-  accounts: DerivAccount[];
-  activeAccount: DerivAccount | null;
-  activeAccountId: string | null;
-  wsUrl: string | undefined;
-  login: () => Promise<void>;
-  signUp: () => Promise<void>;
-  logout: () => void;
-  switchAccount: (accountId: string) => Promise<void>;
-  error: string | null;
-}
-
-export function useAuth(): UseAuthReturn {
-  const [authState, setAuthState] = useState<AuthState>(() =>
-    typeof window !== 'undefined' && getAuthInfo() ? 'authenticated' : 'unauthenticated'
-  );
-  const [accounts, setAccounts] = useState<DerivAccount[]>(() => {
-    if (typeof window === 'undefined') return [];
-    return getDerivAccounts() ?? [];
-  });
-  const [activeAccountId, setActiveAccountId] = useState<string | null>(() => {
-    if (typeof window === 'undefined') return null;
-    return getActiveLoginId() ?? null;
-  });
-  const [wsUrl, setWsUrl] = useState<string | undefined>(undefined);
-  const [error, setError] = useState<string | null>(null);
-  const initRef = useRef(false);
-  const activeAccountIdRef = useRef<string | null>(null);
-  const tabHiddenAtRef = useRef<number | null>(null);
-
-  const fetchOTPUrl = useCallback(
-    async (accountId: string, authInfo: AuthInfo): Promise<string> => {
-      return getWebSocketOTP(accountId, authInfo, getAuthConfig().clientId);
-    },
-    []
-  );
-
-  // Accepts an optional preferredAccountId (e.g. forwarded from the parent
-  // site via ?acct=) so this sub-app activates the SAME account the parent
-  // page currently has selected, instead of always defaulting to whichever
-  // account happens to be first in the list.
-  const completeAuth = useCallback(
-    async (authInfo: AuthInfo, preferredAccountId?: string | null) => {
-      const fetchedAccounts = await fetchAccounts(authInfo, getAuthConfig().clientId);
-      setAccounts(fetchedAccounts);
-
-      if (fetchedAccounts.length > 0) {
-        const matched = preferredAccountId
-          ? fetchedAccounts.find(a => a.account_id === preferredAccountId)
-          : undefined;
-        const chosenAccount = matched ?? fetchedAccounts[0];
-
-        setActiveAccountId(chosenAccount.account_id);
-        setActiveLoginId(chosenAccount.account_id);
-        setAccountType(chosenAccount.account_type);
-
-        const otpUrl = await fetchOTPUrl(chosenAccount.account_id, authInfo);
-        setWsUrl(otpUrl);
-      }
-
-      setAuthState('authenticated');
-    },
-    [fetchOTPUrl]
-  );
-
-  useEffect(() => {
-    if (initRef.current) return;
-    initRef.current = true;
-
-    const init = async () => {
-      const url = new URL(window.location.href);
-      const code = url.searchParams.get('code');
-
-      // ── Token passed from parent site (executiveprimemarkets.site) via ?token= ──
-      const parentToken = url.searchParams.get('token');
-      if (parentToken) {
-        // ?acct= tells us which account (real or demo) the parent page has
-        // active right now, so we log into that same account here.
-        const parentAcct = url.searchParams.get('acct');
-        setAuthState('authenticating');
-        try {
-          const authInfo: AuthInfo = {
-            access_token: parentToken,
-            token_type: 'Bearer',
-          } as AuthInfo;
-          await completeAuth(authInfo, parentAcct);
-          // Clean token/acct from URL without reload
-          url.searchParams.delete('token');
-          url.searchParams.delete('acct');
-          window.history.replaceState({}, '', url.toString());
-        } catch (err) {
-          setError(err instanceof Error ? err.message : 'Token login failed');
-          setAuthState('unauthenticated');
-        }
-        return;
-      }
-
-      // Standard OAuth callback
-      if (code) {
-        setAuthState('authenticating');
-        try {
-          const authInfo = await handleOAuthCallback(window.location.href, getAuthConfig());
-          await completeAuth(authInfo);
-        } catch (err) {
-          setError(err instanceof Error ? err.message : 'Authentication failed');
-          setAuthState('error');
-          clearAllAuthData();
-        }
-        return;
-      }
-
-      // Check for existing session
-      const storedAuth = getAuthInfo();
-      if (storedAuth) {
-        if (storedAuth.expires_at && Date.now() / 1000 > storedAuth.expires_at) {
-          try {
-            const refreshed = await refreshAccessToken(
-              storedAuth.refresh_token,
-              getAuthConfig().clientId
-            );
-            await completeAuth(refreshed);
-          } catch {
-            clearAllAuthData();
-            setAuthState('unauthenticated');
-          }
-          return;
-        }
-
-        const storedAccounts = getDerivAccounts();
-        if (storedAccounts && storedAccounts.length > 0) {
-          setAccounts(storedAccounts);
-          const loginId = getActiveLoginId() ?? storedAccounts[0].account_id;
-          setActiveAccountId(loginId);
-
-          try {
-            const otpUrl = await fetchOTPUrl(loginId, storedAuth);
-            setWsUrl(otpUrl);
-            setAuthState('authenticated');
-          } catch {
-            clearAllAuthData();
-            setAuthState('unauthenticated');
-          }
-        } else {
-          try {
-            await completeAuth(storedAuth);
-          } catch {
-            clearAllAuthData();
-            setAuthState('unauthenticated');
-          }
-        }
-      }
-    };
-
-    init();
-  }, [completeAuth, fetchOTPUrl]);
-
-  useEffect(() => {
-    activeAccountIdRef.current = activeAccountId;
-  }, [activeAccountId]);
-
-  useEffect(() => {
-    if (authState !== 'authenticated') return;
-
-    const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'hidden') {
-        tabHiddenAtRef.current = Date.now();
-        return;
-      }
-
-      const hiddenAt = tabHiddenAtRef.current;
-      if (!hiddenAt || Date.now() - hiddenAt < 30_000) return;
-      tabHiddenAtRef.current = null;
-
-      const accountId = activeAccountIdRef.current;
-      const authInfo = getAuthInfo();
-      if (!authInfo || !accountId) return;
-
-      try {
-        const otpUrl = await fetchOTPUrl(accountId, authInfo);
-        setWsUrl(otpUrl);
-      } catch {
-        clearAllAuthData();
-        setAuthState('unauthenticated');
-        setWsUrl(undefined);
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [authState, fetchOTPUrl]);
-
-  const login = useCallback(async () => {
-    await initiateLogin(await getAuthConfigWithReferral());
-  }, []);
-
-  const signUp = useCallback(async () => {
-    await initiateSignUp(await getAuthConfigWithReferral());
-  }, []);
-
-  const logout = useCallback(() => {
-    coreLogout();
-    setAccounts([]);
-    setActiveAccountId(null);
-    setWsUrl(undefined);
-    setAuthState('unauthenticated');
-    setError(null);
-  }, []);
-
-  const switchAccount = useCallback(
-    async (accountId: string) => {
-      const authInfo = getAuthInfo();
-      if (!authInfo) return;
-
-      try {
-        const account = accounts.find(a => a.account_id === accountId);
-        if (account) setAccountType(account.account_type);
-        const otpUrl = await fetchOTPUrl(accountId, authInfo);
-        setActiveLoginId(accountId);
-        setActiveAccountId(accountId);
-        setWsUrl(otpUrl);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Account switch failed');
-      }
-    },
-    [fetchOTPUrl, accounts]
-  );
-
-  const activeAccount =
-    accounts.find(acc => acc.account_id === activeAccountId) ?? accounts[0] ?? null;
-
-  return {
-    authState,
-    accounts,
-    activeAccount,
-    activeAccountId,
-    wsUrl,
-    login,
-    signUp,
-    logout,
-    switchAccount,
-    error,
+    setActivePage(href);
+    setSidebarOpen(false);
+    const newUrl = href === 'dashboard' ? '/' : `/${href}`;
+    window.history.pushState(null, '', newUrl);
   };
+
+  return (
+    <main style={{
+      margin: 0, padding: 0, width: '100vw', height: '100vh',
+      background: '#0a0a0a', fontFamily: 'Inter, sans-serif',
+      overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column'
+    }}>
+
+      {/* TOP BAR */}
+      <nav style={{
+        position: 'relative', zIndex: 200,
+        height: '62px', background: 'rgba(10,10,10,0.97)',
+        borderBottom: '1px solid rgba(201,168,76,0.18)',
+        display: 'flex', alignItems: 'center',
+        padding: '0 16px', flexShrink: 0,
+        backdropFilter: 'blur(12px)', gap: '12px'
+      }}>
+        <button
+          onClick={() => setSidebarOpen(o => !o)}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            padding: '6px', display: 'flex', flexDirection: 'column',
+            gap: '5px', flexShrink: 0
+          }}
+          aria-label="Toggle menu"
+        >
+          {[0, 1, 2].map(i => (
+            <span key={i} style={{
+              display: 'block', width: '22px', height: '2px',
+              background: '#c9a84c',
+              borderRadius: '2px',
+              transform: sidebarOpen
+                ? (i === 0 ? 'rotate(45deg) translate(5px, 5px)' : i === 2 ? 'rotate(-45deg) translate(5px, -5px)' : 'scaleX(0)')
+                : 'none',
+              transition: 'all 0.2s'
+            }} />
+          ))}
+        </button>
+
+        <a href="/" style={{ textDecoration: 'none', flexShrink: 0 }}
+          onClick={e => { e.preventDefault(); handleNavClick('dashboard'); }}>
+          <img src="/logo.png" alt="ExecutivePrimeMarkets"
+            style={{ height: '55px', width: 'auto', display: 'block' }} />
+        </a>
+
+        <div style={{ flex: 1 }} />
+
+        <AuthButtons />
+      </nav>
+
+      {/* BODY */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
+
+        {sidebarOpen && (
+          <div
+            onClick={() => setSidebarOpen(false)}
+            style={{
+              position: 'absolute', inset: 0,
+              background: 'rgba(0,0,0,0.55)',
+              zIndex: 90
+            }}
+          />
+        )}
+
+        {/* SLIDING SIDEBAR */}
+        <aside style={{
+          position: 'absolute',
+          top: 0, left: 0, bottom: 0,
+          width: '210px',
+          background: '#0f0f0f',
+          borderRight: '1px solid rgba(201,168,76,0.12)',
+          display: 'flex', flexDirection: 'column',
+          padding: '16px 8px', gap: '2px',
+          zIndex: 100,
+          transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
+          transition: 'transform 0.25s ease',
+        }}>
+          {navLinks.map(link => (
+            <a
+              key={link.label}
+              href="#"
+              onClick={e => { e.preventDefault(); handleNavClick(link.href); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '10px',
+                padding: '10px 12px', borderRadius: '8px',
+                color: activePage === link.href ? '#c9a84c' : 'rgba(255,255,255,0.6)',
+                fontSize: '13px', textDecoration: 'none',
+                borderLeft: activePage === link.href ? '2px solid #c9a84c' : '2px solid transparent',
+                background: activePage === link.href ? 'rgba(201,168,76,0.08)' : 'transparent',
+                transition: 'all 0.15s'
+              }}
+              onMouseEnter={e => {
+                if (activePage !== link.href) {
+                  e.currentTarget.style.color = '#c9a84c';
+                  e.currentTarget.style.background = 'rgba(201,168,76,0.08)';
+                  e.currentTarget.style.borderLeftColor = '#c9a84c';
+                }
+              }}
+              onMouseLeave={e => {
+                if (activePage !== link.href) {
+                  e.currentTarget.style.color = 'rgba(255,255,255,0.6)';
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.borderLeftColor = 'transparent';
+                }
+              }}
+            >
+              <span style={{ fontSize: '16px' }}>{link.icon}</span>
+              {link.label}
+            </a>
+          ))}
+          <div style={{ flex: 1 }} />
+          <div style={{
+            padding: '12px', fontSize: '10px',
+            color: 'rgba(255,255,255,0.18)', letterSpacing: '1.5px',
+            borderTop: '1px solid rgba(201,168,76,0.1)', marginTop: '8px'
+          }}>
+            POWERED BY <span style={{ color: 'rgba(201,168,76,0.4)' }}>DERIV</span>
+          </div>
+        </aside>
+
+        {/* MAIN CONTENT */}
+        <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', width: '100%' }}>
+          {iframeSrc ? (
+            <iframe
+              key={`${activePage}-${authState}-${activeAccountId ?? 'none'}`}
+              src={iframeSrc}
+              style={{ width: '100%', height: '100%', border: 'none', flex: 1 }}
+              title={activePage}
+              allow="fullscreen"
+            />
+          ) : activePage === 'dashboard' ? (
+            <DashboardPage onNavigate={handleNavClick} />
+          ) : (
+            <ComingSoonPage label={navLinks.find(l => l.href === activePage)?.label || activePage} />
+          )}
+        </div>
+      </div>
+    </main>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <DerivWSProvider>
+      <HomePageInner />
+    </DerivWSProvider>
+  );
 }
