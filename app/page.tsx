@@ -240,7 +240,7 @@ function HomePageInner() {
 
   const handleNavClick = (href: string) => {
     if (href === 'botbuilder') {
-      window.open('https://bot.executiveprimemarkets.site', '_blank', 'noopener,noreferrer');
+      window.location.href = 'https://bot.executiveprimemarkets.site';
       return;
     }
     setActivePage(href);
