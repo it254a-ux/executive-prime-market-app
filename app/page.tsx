@@ -238,9 +238,8 @@ function HomePageInner() {
 
   const iframeSrc = getIframeSrc(activePage);
 
-  const handleNavClick = (href: string) => {
-    if (href === 'botbuilder') {
-      window.open('https://bot.executiveprimemarkets.site', '_blank', 'noopener,noreferrer');
+  if (href === 'botbuilder') {
+      window.location.href = 'https://bot.executiveprimemarkets.site';
       return;
     }
     setActivePage(href);
