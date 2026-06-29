@@ -69,6 +69,9 @@ function ComingSoonPage({ label }: { label: string }) {
   );
 }
 
+// NEW: dropdown that lists every linked Deriv account (demo + real) and lets
+// the user switch between them. This was missing before — switchAccount()
+// existed in useAuth but nothing in the UI ever called it.
 function AccountSwitcher() {
   const { auth } = useDerivWSContext();
   const { accounts, activeAccount, activeAccountId, switchAccount } = auth;
@@ -219,6 +222,9 @@ function HomePageInner() {
   const { auth } = useDerivWSContext();
   const { authState, accessToken, activeAccountId } = auth;
 
+  // Pass the active account along with the token so the iframe sub-app logs
+  // straight into the SAME account selected on the homepage (real or demo),
+  // instead of always defaulting to the first account in its own list.
   const getIframeSrc = (page: string): string | null => {
     const base = iframeBases[page];
     if (!base) return null;
@@ -234,7 +240,7 @@ function HomePageInner() {
 
   const handleNavClick = (href: string) => {
     if (href === 'botbuilder') {
-      window.location.href = 'https://bot.executiveprimemarkets.site';
+      window.open('https://bot.executiveprimemarkets.site', '_blank', 'noopener,noreferrer');
       return;
     }
     setActivePage(href);
@@ -246,14 +252,14 @@ function HomePageInner() {
   return (
     <main style={{
       margin: 0, padding: 0, width: '100vw', height: '100vh',
-      background: '#0a0a0a', fontFamily: 'Inter, sans-serif',
+      background: '#181c25', fontFamily: 'Inter, sans-serif',
       overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column'
     }}>
 
       {/* TOP BAR */}
       <nav style={{
         position: 'relative', zIndex: 200,
-        height: '62px', background: 'rgba(10,10,10,0.97)',
+        height: '62px', background: 'rgba(24,28,37,0.97)',
         borderBottom: '1px solid rgba(201,168,76,0.18)',
         display: 'flex', alignItems: 'center',
         padding: '0 16px', flexShrink: 0,
@@ -311,7 +317,7 @@ function HomePageInner() {
           position: 'absolute',
           top: 0, left: 0, bottom: 0,
           width: '210px',
-          background: '#0f0f0f',
+          background: '#181c25',
           borderRight: '1px solid rgba(201,168,76,0.12)',
           display: 'flex', flexDirection: 'column',
           padding: '16px 8px', gap: '2px',
