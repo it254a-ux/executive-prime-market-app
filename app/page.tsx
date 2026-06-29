@@ -15,9 +15,10 @@ const navLinks = [
 ];
 
 const iframeBases: Record<string, string> = {
-  charts:   'https://charts-accumulators-app.vercel.app',
-  dtrader:  'https://rise-fall-epm-dtrader.vercel.app',
-  analysis: 'https://digits-epm-analysis.vercel.app',
+  charts:      'https://charts-accumulators-app.vercel.app',
+  dtrader:     'https://rise-fall-epm-dtrader.vercel.app',
+  analysis:    'https://digits-epm-analysis.vercel.app',
+  copytrading: 'https://epm-copy-trading.vercel.app',
 };
 
 function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
@@ -25,7 +26,8 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
     <div style={{
       flex: 1, display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
-      color: '#fff', gap: '24px', padding: '40px'
+      color: '#fff', gap: '24px', padding: '40px',
+      background: '#181c25'
     }}>
       <img src="/logo.png" alt="ExecutivePrimeMarkets" style={{ height: '100px', width: 'auto' }} />
       <h1 style={{ color: '#c9a84c', fontSize: '28px', fontWeight: 700, margin: 0, textAlign: 'center' }}>
@@ -60,7 +62,8 @@ function ComingSoonPage({ label }: { label: string }) {
     <div style={{
       flex: 1, display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
-      color: '#fff', gap: '16px'
+      color: '#fff', gap: '16px',
+      background: '#181c25'
     }}>
       <div style={{ fontSize: '48px' }}>🚧</div>
       <h2 style={{ color: '#c9a84c', margin: 0 }}>{label}</h2>
