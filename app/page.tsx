@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DerivWSProvider, useDerivWSContext } from '@/components/custom/deriv-ws-provider';
 
 const navLinks = [
@@ -247,6 +247,22 @@ function HomePageInner() {
       return next;
     });
   };
+
+  // Warm up all subpages in the background shortly after the app loads,
+  // staggered so they don't all hit the network at once.
+  useEffect(() => {
+    const pages = Object.keys(iframeBases);
+    pages.forEach((page, i) => {
+      setTimeout(() => {
+        setPreloadedPages(prev => {
+          if (prev.has(page)) return prev;
+          const next = new Set(prev);
+          next.add(page);
+          return next;
+        });
+      }, 800 + i * 600); // stagger by 600ms per page, starting after 800ms
+    });
+  }, []);
 
   const getIframeSrc = (page: string): string | null => {
     const base = iframeBases[page];
