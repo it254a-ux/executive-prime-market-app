@@ -72,9 +72,6 @@ function ComingSoonPage({ label }: { label: string }) {
   );
 }
 
-// NEW: dropdown that lists every linked Deriv account (demo + real) and lets
-// the user switch between them. This was missing before — switchAccount()
-// existed in useAuth but nothing in the UI ever called it.
 function AccountSwitcher() {
   const { auth } = useDerivWSContext();
   const { accounts, activeAccount, activeAccountId, switchAccount } = auth;
@@ -159,10 +156,16 @@ function AuthButtons() {
   const { authState, activeAccount, login, signUp, logout } = auth;
   const isAuthenticated = authState === 'authenticated';
   const isAuthenticating = authState === 'authenticating';
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 640;
+    }
+    return false;
+  });
 
   if (isAuthenticated && activeAccount) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div style={{ display: isMobile ? 'none' : 'flex', alignItems: 'center', gap: '10px' }}>
         <AccountSwitcher />
         <button
           onClick={logout}
@@ -180,7 +183,7 @@ function AuthButtons() {
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+    <div style={{ display: isMobile ? 'none' : 'flex', alignItems: 'center', gap: '8px' }}>
       <button
         onClick={login}
         disabled={isAuthenticating}
@@ -225,9 +228,6 @@ function HomePageInner() {
   const { auth } = useDerivWSContext();
   const { authState, accessToken, activeAccountId } = auth;
 
-  // Pass the active account along with the token so the iframe sub-app logs
-  // straight into the SAME account selected on the homepage (real or demo),
-  // instead of always defaulting to the first account in its own list.
   const getIframeSrc = (page: string): string | null => {
     const base = iframeBases[page];
     if (!base) return null;
