@@ -372,7 +372,7 @@ function HomePageInner() {
         </aside>
 
         {/* MAIN CONTENT */}
-        <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', width: '100%' }}>
+        <div style={{ flex: 1, position: 'relative', overflow: 'auto', display: 'flex', width: '100%' }}>
           {iframeSrc ? (
             <iframe
               key={`${activePage}-${authState}-${activeAccountId ?? 'none'}`}
