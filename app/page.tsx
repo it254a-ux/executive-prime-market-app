@@ -228,6 +228,26 @@ function HomePageInner() {
   const { auth } = useDerivWSContext();
   const { authState, accessToken, activeAccountId } = auth;
 
+  // Tracks which subpages have started loading in the background (hover-preload).
+  const [preloadedPages, setPreloadedPages] = useState<Set<string>>(() => {
+    const initial = new Set<string>();
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.replace('/', '').trim() || 'dashboard';
+      if (iframeBases[path]) initial.add(path);
+    }
+    return initial;
+  });
+
+  const handleNavHover = (href: string) => {
+    if (!iframeBases[href]) return;
+    setPreloadedPages(prev => {
+      if (prev.has(href)) return prev;
+      const next = new Set(prev);
+      next.add(href);
+      return next;
+    });
+  };
+
   const getIframeSrc = (page: string): string | null => {
     const base = iframeBases[page];
     if (!base) return null;
@@ -246,6 +266,7 @@ function HomePageInner() {
       window.location.href = 'https://bot.executiveprimemarkets.site';
       return;
     }
+    handleNavHover(href);
     setActivePage(href);
     setSidebarOpen(false);
     const newUrl = href === 'dashboard' ? '/' : `/${href}`;
@@ -343,6 +364,7 @@ function HomePageInner() {
                 transition: 'all 0.15s'
               }}
               onMouseEnter={e => {
+                handleNavHover(link.href);
                 if (activePage !== link.href) {
                   e.currentTarget.style.color = '#c9a84c';
                   e.currentTarget.style.background = 'rgba(201,168,76,0.08)';
@@ -373,17 +395,32 @@ function HomePageInner() {
 
         {/* MAIN CONTENT */}
         <div style={{ flex: 1, position: 'relative', overflow: 'auto', display: 'flex', width: '100%' }}>
-          {iframeSrc ? (
-            <iframe
-              key={`${activePage}-${authState}-${activeAccountId ?? 'none'}`}
-              src={iframeSrc}
-              style={{ width: '100%', height: '100%', border: 'none', flex: 1 }}
-              title={activePage}
-              allow="fullscreen"
-            />
-          ) : activePage === 'dashboard' ? (
+          {Array.from(preloadedPages).map(page => {
+            const src = getIframeSrc(page);
+            if (!src) return null;
+            const isActive = activePage === page;
+            return (
+              <iframe
+                key={`${page}-${authState}-${activeAccountId ?? 'none'}`}
+                src={src}
+                style={{
+                  width: '100%', height: '100%', border: 'none',
+                  position: isActive ? 'static' : 'absolute',
+                  top: 0, left: 0,
+                  opacity: isActive ? 1 : 0,
+                  pointerEvents: isActive ? 'auto' : 'none',
+                  zIndex: isActive ? 1 : 0,
+                  flex: isActive ? 1 : undefined,
+                }}
+                title={page}
+                allow="fullscreen"
+              />
+            );
+          })}
+          {!iframeSrc && activePage === 'dashboard' && (
             <DashboardPage onNavigate={handleNavClick} />
-          ) : (
+          )}
+          {!iframeSrc && activePage !== 'dashboard' && (
             <ComingSoonPage label={navLinks.find(l => l.href === activePage)?.label || activePage} />
           )}
         </div>
