@@ -19,6 +19,7 @@ const iframeBases: Record<string, string> = {
   dtrader:     'https://rise-fall-epm-dtrader.vercel.app',
   analysis:    'https://digits-epm-analysis.vercel.app',
   copytrading: 'https://epm-copy-trading.vercel.app',
+  botbuilder:  'https://epm-botbuilder-uo51.vercel.app',
 };
 
 function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
@@ -278,10 +279,6 @@ function HomePageInner() {
   const iframeSrc = getIframeSrc(activePage);
 
   const handleNavClick = (href: string) => {
-    if (href === 'botbuilder') {
-      window.location.href = 'https://bot.executiveprimemarkets.site';
-      return;
-    }
     handleNavHover(href);
     setActivePage(href);
     setSidebarOpen(false);
