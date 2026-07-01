@@ -339,9 +339,10 @@ function HomePageInner() {
         const activeSrc = existing.active === 'A' ? existing.srcA : existing.srcB;
         const inactiveSrc = existing.active === 'A' ? existing.srcB : existing.srcA;
         if (activeSrc === target || inactiveSrc === target) return prev;
-        return existing.active === 'A'
+        const updated: PageSlots = existing.active === 'A'
           ? { ...existing, srcB: target }
           : { ...existing, srcA: target };
+        return { ...prev, [page]: updated };
       });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
