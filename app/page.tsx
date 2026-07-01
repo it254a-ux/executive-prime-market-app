@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { DerivWSProvider, useDerivWSContext } from '@/components/custom/deriv-ws-provider';
+import { DerivWSProvider, useDerivWSContext, LiveBalance } from '@/components/custom/deriv-ws-provider';
 
 const navLinks = [
   { label: 'Dashboard',         icon: '🏠', href: 'dashboard' },
@@ -21,6 +21,18 @@ const iframeBases: Record<string, string> = {
   copytrading: 'https://epm-copy-trading.vercel.app',
   botbuilder:  'https://epm-botbuilder-uo51.vercel.app',
 };
+
+// Prefer the live-subscribed balance when it's for the currently active
+// account; otherwise fall back to the one-time snapshot from login/switch.
+function resolveBalance(
+  account: { account_id: string; balance: number | string; currency: string },
+  liveBalance: LiveBalance | null
+): { balance: number; currency: string } {
+  if (liveBalance && liveBalance.loginid === account.account_id) {
+    return { balance: liveBalance.balance, currency: liveBalance.currency };
+  }
+  return { balance: Number(account.balance), currency: account.currency };
+}
 
 function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
   return (
@@ -74,11 +86,13 @@ function ComingSoonPage({ label }: { label: string }) {
 }
 
 function AccountSwitcher() {
-  const { auth } = useDerivWSContext();
+  const { auth, liveBalance } = useDerivWSContext();
   const { accounts, activeAccount, activeAccountId, switchAccount } = auth;
   const [open, setOpen] = useState(false);
 
   if (!activeAccount || accounts.length === 0) return null;
+
+  const { balance: activeBalance, currency: activeCurrency } = resolveBalance(activeAccount, liveBalance);
 
   return (
     <div style={{ position: 'relative' }}>
@@ -99,7 +113,7 @@ function AccountSwitcher() {
           {activeAccount.account_type === 'real' ? 'REAL' : 'DEMO'}
         </span>
         <span style={{ color: 'rgba(255,255,255,0.6)' }}>
-          {Number(activeAccount.balance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {activeAccount.currency}
+          {activeBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {activeCurrency}
         </span>
         <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>▾</span>
       </button>
@@ -115,6 +129,7 @@ function AccountSwitcher() {
           }}>
             {accounts.map(acc => {
               const isActive = acc.account_id === activeAccountId;
+              const { balance: accBalance, currency: accCurrency } = resolveBalance(acc, liveBalance);
               return (
                 <button
                   key={acc.account_id}
@@ -140,7 +155,7 @@ function AccountSwitcher() {
                     {acc.account_id}
                   </span>
                   <span style={{ color: 'rgba(255,255,255,0.5)' }}>
-                    {Number(acc.balance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {acc.currency}
+                    {accBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {accCurrency}
                   </span>
                 </button>
               );
