@@ -264,8 +264,11 @@ function HomePageInner() {
     });
   };
 
-  // Warm up all subpages in the background shortly after the app loads,
-  // staggered so they don't all hit the network at once.
+  // Warm up other subpages in the background — but only after giving the
+  // page you're actually on a real head start. Heavy apps (like Bot
+  // Builder's bundle) need the network/CPU to themselves for the first
+  // few seconds; starting other apps too early competes for that and
+  // makes the page you're looking at feel slower, not faster.
   useEffect(() => {
     const pages = Object.keys(iframeBases);
     pages.forEach((page, i) => {
@@ -276,7 +279,7 @@ function HomePageInner() {
           next.add(page);
           return next;
         });
-      }, 800 + i * 600); // stagger by 600ms per page, starting after 800ms
+      }, 4000 + i * 1200); // 4s head start, then one new page every 1.2s
     });
   }, []);
 
