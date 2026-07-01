@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { DerivWSProvider, useDerivWSContext, LiveBalance } from '@/components/custom/deriv-ws-provider';
 
 const navLinks = [
@@ -21,6 +21,13 @@ const iframeBases: Record<string, string> = {
   copytrading: 'https://epm-copy-trading.vercel.app',
   botbuilder:  'https://epm-botbuilder-uo51.vercel.app',
 };
+
+// How long to wait, after a background iframe finishes loading, before
+// swapping it in as the visible one. Gives the subapp's internal token /
+// WebSocket-authorize flow a moment to run before it's shown. Tune this
+// up if you still see the odd flash of a "logging in" state after switching,
+// or down if switching feels sluggish.
+const SWAP_GRACE_MS = 900;
 
 // Prefer the live-subscribed balance when it's for the currently active
 // account; otherwise fall back to the one-time snapshot from login/switch.
@@ -232,6 +239,18 @@ function AuthButtons() {
   );
 }
 
+// Each preloaded page gets two "slots" (A and B). Only one is ever visible —
+// the other loads silently in the background. When switching accounts, the
+// new token/acct URL is staged into whichever slot isn't currently showing;
+// once that background iframe finishes loading (+ a short grace period for
+// its internal auth flow to run), it becomes the visible slot. The user
+// never sees a blank iframe or reload — just a clean swap.
+interface PageSlots {
+  active: 'A' | 'B';
+  srcA: string | null;
+  srcB: string | null;
+}
+
 function HomePageInner() {
   const [activePage, setActivePage] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -291,7 +310,7 @@ function HomePageInner() {
     return base;
   };
 
-  const iframeSrc = getIframeSrc(activePage);
+  const iframeSrcForFallback = getIframeSrc(activePage);
 
   const handleNavClick = (href: string) => {
     handleNavHover(href);
@@ -299,6 +318,47 @@ function HomePageInner() {
     setSidebarOpen(false);
     const newUrl = href === 'dashboard' ? '/' : `/${href}`;
     window.history.pushState(null, '', newUrl);
+  };
+
+  // Two-slot state per page: which slot is visible, and each slot's src.
+  const [pageSlots, setPageSlots] = useState<Record<string, PageSlots>>({});
+  const swapTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  // Whenever the target src for a page changes (login, logout, or account
+  // switch), stage it into whichever slot isn't currently visible. If it's
+  // already showing, or already staged and loading, do nothing.
+  useEffect(() => {
+    preloadedPages.forEach(page => {
+      const target = getIframeSrc(page);
+      if (!target) return;
+      setPageSlots(prev => {
+        const existing = prev[page];
+        if (!existing) {
+          return { ...prev, [page]: { active: 'A', srcA: target, srcB: null } };
+        }
+        const activeSrc = existing.active === 'A' ? existing.srcA : existing.srcB;
+        const inactiveSrc = existing.active === 'A' ? existing.srcB : existing.srcA;
+        if (activeSrc === target || inactiveSrc === target) return prev;
+        return existing.active === 'A'
+          ? { ...existing, srcB: target }
+          : { ...existing, srcA: target };
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authState, accessToken, activeAccountId, preloadedPages]);
+
+  // Called when a background (non-visible) slot finishes loading. After a
+  // short grace period — enough time for that subapp's own token/WS-auth
+  // flow to run — flip it to become the visible slot.
+  const scheduleSwap = (page: string, slot: 'A' | 'B') => {
+    if (swapTimeoutsRef.current[page]) clearTimeout(swapTimeoutsRef.current[page]);
+    swapTimeoutsRef.current[page] = setTimeout(() => {
+      setPageSlots(prev => {
+        const existing = prev[page];
+        if (!existing || existing.active === slot) return prev;
+        return { ...existing, active: slot };
+      });
+    }, SWAP_GRACE_MS);
   };
 
   return (
@@ -424,31 +484,52 @@ function HomePageInner() {
         {/* MAIN CONTENT */}
         <div style={{ flex: 1, position: 'relative', overflow: 'auto', display: 'flex', width: '100%' }}>
           {Array.from(preloadedPages).map(page => {
-            const src = getIframeSrc(page);
-            if (!src) return null;
-            const isActive = activePage === page;
+            const slotState = pageSlots[page];
+            if (!slotState) return null;
+            const isActivePage = activePage === page;
             return (
-              <iframe
-                key={`${page}-${authState}-${activeAccountId ?? 'none'}`}
-                src={src}
+              <div
+                key={page}
                 style={{
-                  width: '100%', height: '100%', border: 'none',
-                  position: isActive ? 'static' : 'absolute',
+                  width: '100%', height: '100%',
+                  position: isActivePage ? 'static' : 'absolute',
                   top: 0, left: 0,
-                  opacity: isActive ? 1 : 0,
-                  pointerEvents: isActive ? 'auto' : 'none',
-                  zIndex: isActive ? 1 : 0,
-                  flex: isActive ? 1 : undefined,
+                  opacity: isActivePage ? 1 : 0,
+                  pointerEvents: isActivePage ? 'auto' : 'none',
+                  zIndex: isActivePage ? 1 : 0,
+                  flex: isActivePage ? 1 : undefined,
                 }}
-                title={page}
-                allow="fullscreen"
-              />
+              >
+                {(['A', 'B'] as const).map(slot => {
+                  const src = slot === 'A' ? slotState.srcA : slotState.srcB;
+                  if (!src) return null;
+                  const isSlotVisible = slotState.active === slot;
+                  return (
+                    <iframe
+                      key={`${page}-${slot}-${src}`}
+                      src={src}
+                      onLoad={() => {
+                        if (slotState.active !== slot) scheduleSwap(page, slot);
+                      }}
+                      style={{
+                        width: '100%', height: '100%', border: 'none',
+                        position: 'absolute', top: 0, left: 0,
+                        opacity: isSlotVisible ? 1 : 0,
+                        pointerEvents: isSlotVisible ? 'auto' : 'none',
+                        zIndex: isSlotVisible ? 1 : 0,
+                      }}
+                      title={`${page}-${slot}`}
+                      allow="fullscreen"
+                    />
+                  );
+                })}
+              </div>
             );
           })}
-          {!iframeSrc && activePage === 'dashboard' && (
+          {!iframeSrcForFallback && activePage === 'dashboard' && (
             <DashboardPage onNavigate={handleNavClick} />
           )}
-          {!iframeSrc && activePage !== 'dashboard' && (
+          {!iframeSrcForFallback && activePage !== 'dashboard' && (
             <ComingSoonPage label={navLinks.find(l => l.href === activePage)?.label || activePage} />
           )}
         </div>
