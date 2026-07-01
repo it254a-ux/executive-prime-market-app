@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { DerivWSProvider, useDerivWSContext, LiveBalance } from '@/components/custom/deriv-ws-provider';
 
 const navLinks = [
@@ -21,13 +21,6 @@ const iframeBases: Record<string, string> = {
   copytrading: 'https://epm-copy-trading.vercel.app',
   botbuilder:  'https://epm-botbuilder-uo51.vercel.app',
 };
-
-// How long to wait, after a background iframe finishes loading, before
-// swapping it in as the visible one. Gives the subapp's internal token /
-// WebSocket-authorize flow a moment to run before it's shown. Tune this
-// up if you still see the odd flash of a "logging in" state after switching,
-// or down if switching feels sluggish.
-const SWAP_GRACE_MS = 900;
 
 // Prefer the live-subscribed balance when it's for the currently active
 // account; otherwise fall back to the one-time snapshot from login/switch.
@@ -239,18 +232,6 @@ function AuthButtons() {
   );
 }
 
-// Each preloaded page gets two "slots" (A and B). Only one is ever visible —
-// the other loads silently in the background. When switching accounts, the
-// new token/acct URL is staged into whichever slot isn't currently showing;
-// once that background iframe finishes loading (+ a short grace period for
-// its internal auth flow to run), it becomes the visible slot. The user
-// never sees a blank iframe or reload — just a clean swap.
-interface PageSlots {
-  active: 'A' | 'B';
-  srcA: string | null;
-  srcB: string | null;
-}
-
 function HomePageInner() {
   const [activePage, setActivePage] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -261,7 +242,7 @@ function HomePageInner() {
   });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { auth } = useDerivWSContext();
-  const { authState, accessToken, activeAccountId } = auth;
+  const { authState, accessToken, activeAccountId, accounts } = auth;
 
   // Tracks which subpages have started loading in the background (hover-preload).
   const [preloadedPages, setPreloadedPages] = useState<Set<string>>(() => {
@@ -299,19 +280,6 @@ function HomePageInner() {
     });
   }, []);
 
-  const getIframeSrc = (page: string): string | null => {
-    const base = iframeBases[page];
-    if (!base) return null;
-    if (authState === 'authenticated' && accessToken) {
-      const params = new URLSearchParams({ token: accessToken });
-      if (activeAccountId) params.set('acct', activeAccountId);
-      return `${base}?${params.toString()}`;
-    }
-    return base;
-  };
-
-  const iframeSrcForFallback = getIframeSrc(activePage);
-
   const handleNavClick = (href: string) => {
     handleNavHover(href);
     setActivePage(href);
@@ -320,47 +288,64 @@ function HomePageInner() {
     window.history.pushState(null, '', newUrl);
   };
 
-  // Two-slot state per page: which slot is visible, and each slot's src.
-  const [pageSlots, setPageSlots] = useState<Record<string, PageSlots>>({});
-  const swapTimeoutsRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  // Fully-preloaded, per-account iframe map: key = `${page}::${accountId}`
+  // (or `${page}::public` before login). Every account this user has gets
+  // its own permanently-mounted, hidden iframe for every preloaded page —
+  // so switching REAL/DEMO, or navigating between pages, is a pure
+  // visibility toggle. Nothing loads at switch time because it's already
+  // sitting there, authorized, in the background.
+  const [loadedCombos, setLoadedCombos] = useState<Record<string, string>>({});
 
-  // Whenever the target src for a page changes (login, logout, or account
-  // switch), stage it into whichever slot isn't currently visible. If it's
-  // already showing, or already staged and loading, do nothing.
   useEffect(() => {
-    preloadedPages.forEach(page => {
-      const target = getIframeSrc(page);
-      if (!target) return;
-      setPageSlots(prev => {
-        const existing = prev[page];
-        if (!existing) {
-          return { ...prev, [page]: { active: 'A', srcA: target, srcB: null } };
-        }
-        const activeSrc = existing.active === 'A' ? existing.srcA : existing.srcB;
-        const inactiveSrc = existing.active === 'A' ? existing.srcB : existing.srcA;
-        if (activeSrc === target || inactiveSrc === target) return prev;
-        const updated: PageSlots = existing.active === 'A'
-          ? { ...existing, srcB: target }
-          : { ...existing, srcA: target };
-        return { ...prev, [page]: updated };
-      });
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authState, accessToken, activeAccountId, preloadedPages]);
+    setLoadedCombos(prev => {
+      let changed = false;
+      const next = { ...prev };
 
-  // Called when a background (non-visible) slot finishes loading. After a
-  // short grace period — enough time for that subapp's own token/WS-auth
-  // flow to run — flip it to become the visible slot.
-  const scheduleSwap = (page: string, slot: 'A' | 'B') => {
-    if (swapTimeoutsRef.current[page]) clearTimeout(swapTimeoutsRef.current[page]);
-    swapTimeoutsRef.current[page] = setTimeout(() => {
-      setPageSlots(prev => {
-        const existing = prev[page];
-        if (!existing || existing.active === slot) return prev;
-        return { ...prev, [page]: { ...existing, active: slot } };
+      preloadedPages.forEach(page => {
+        const base = iframeBases[page];
+        if (!base) return;
+
+        if (authState === 'authenticated' && accessToken && accounts.length > 0) {
+          accounts.forEach(acc => {
+            const key = `${page}::${acc.account_id}`;
+            if (!next[key]) {
+              const params = new URLSearchParams({ token: accessToken, acct: acc.account_id });
+              next[key] = `${base}?${params.toString()}`;
+              changed = true;
+            }
+          });
+        } else if (authState !== 'authenticated') {
+          const key = `${page}::public`;
+          if (!next[key]) {
+            next[key] = base;
+            changed = true;
+          }
+        }
       });
-    }, SWAP_GRACE_MS);
-  };
+
+      return changed ? next : prev;
+    });
+  }, [preloadedPages, authState, accessToken, accounts]);
+
+  // On logout, drop the authenticated per-account iframes (stale tokens,
+  // freed resources) but keep the public/logged-out ones around.
+  useEffect(() => {
+    if (authState === 'authenticated') return;
+    setLoadedCombos(prev => {
+      let changed = false;
+      const next: Record<string, string> = {};
+      Object.entries(prev).forEach(([key, src]) => {
+        if (key.endsWith('::public')) {
+          next[key] = src;
+        } else {
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [authState]);
+
+  const hasIframeBase = !!iframeBases[activePage];
 
   return (
     <main style={{
@@ -485,9 +470,12 @@ function HomePageInner() {
         {/* MAIN CONTENT */}
         <div style={{ flex: 1, position: 'relative', overflow: 'auto', display: 'flex', width: '100%' }}>
           {Array.from(preloadedPages).map(page => {
-            const slotState = pageSlots[page];
-            if (!slotState) return null;
             const isActivePage = activePage === page;
+            const activeKey = authState === 'authenticated' && activeAccountId
+              ? `${page}::${activeAccountId}`
+              : `${page}::public`;
+            const pageKeys = Object.keys(loadedCombos).filter(k => k.startsWith(`${page}::`));
+
             return (
               <div
                 key={page}
@@ -501,25 +489,21 @@ function HomePageInner() {
                   flex: isActivePage ? 1 : undefined,
                 }}
               >
-                {(['A', 'B'] as const).map(slot => {
-                  const src = slot === 'A' ? slotState.srcA : slotState.srcB;
-                  if (!src) return null;
-                  const isSlotVisible = slotState.active === slot;
+                {pageKeys.map(key => {
+                  const src = loadedCombos[key];
+                  const isVisible = key === activeKey;
                   return (
                     <iframe
-                      key={`${page}-${slot}-${src}`}
+                      key={key}
                       src={src}
-                      onLoad={() => {
-                        if (slotState.active !== slot) scheduleSwap(page, slot);
-                      }}
                       style={{
                         width: '100%', height: '100%', border: 'none',
                         position: 'absolute', top: 0, left: 0,
-                        opacity: isSlotVisible ? 1 : 0,
-                        pointerEvents: isSlotVisible ? 'auto' : 'none',
-                        zIndex: isSlotVisible ? 1 : 0,
+                        opacity: isVisible ? 1 : 0,
+                        pointerEvents: isVisible ? 'auto' : 'none',
+                        zIndex: isVisible ? 1 : 0,
                       }}
-                      title={`${page}-${slot}`}
+                      title={key}
                       allow="fullscreen"
                     />
                   );
@@ -527,10 +511,10 @@ function HomePageInner() {
               </div>
             );
           })}
-          {!iframeSrcForFallback && activePage === 'dashboard' && (
+          {!hasIframeBase && activePage === 'dashboard' && (
             <DashboardPage onNavigate={handleNavClick} />
           )}
-          {!iframeSrcForFallback && activePage !== 'dashboard' && (
+          {!hasIframeBase && activePage !== 'dashboard' && (
             <ComingSoonPage label={navLinks.find(l => l.href === activePage)?.label || activePage} />
           )}
         </div>
