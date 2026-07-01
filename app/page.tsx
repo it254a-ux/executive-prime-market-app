@@ -357,7 +357,7 @@ function HomePageInner() {
       setPageSlots(prev => {
         const existing = prev[page];
         if (!existing || existing.active === slot) return prev;
-        return { ...existing, active: slot };
+        return { ...prev, [page]: { ...existing, active: slot } };
       });
     }, SWAP_GRACE_MS);
   };
