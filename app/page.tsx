@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { DerivWSProvider, useDerivWSContext, LiveBalance } from '@/components/custom/deriv-ws-provider';
 
 const navLinks = [
@@ -292,40 +292,79 @@ function HomePageInner() {
   // (or `${page}::public` before login). Every account this user has gets
   // its own permanently-mounted, hidden iframe for every preloaded page —
   // so switching REAL/DEMO, or navigating between pages, is a pure
-  // visibility toggle. Nothing loads at switch time because it's already
-  // sitting there, authorized, in the background.
+  // visibility toggle once warmed. To avoid every account for every page
+  // booting at once (which starved the page you're actually looking at),
+  // loading is split into two tiers:
+  //   1. Fast path — the page/account you're on right now loads immediately,
+  //      unthrottled, so refreshing never feels slow.
+  //   2. Background queue — everything else (other accounts on this page,
+  //      other pages entirely) trickles in one at a time, active-page-first,
+  //      so it never competes with what's on screen.
   const [loadedCombos, setLoadedCombos] = useState<Record<string, string>>({});
+  const backgroundQueueTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Tier 1a — public (logged-out) pages are lightweight (login screen only),
+  // load them immediately, no throttling needed.
   useEffect(() => {
+    if (authState === 'authenticated') return;
+    preloadedPages.forEach(page => {
+      const base = iframeBases[page];
+      if (!base) return;
+      const key = `${page}::public`;
+      setLoadedCombos(prev => (prev[key] ? prev : { ...prev, [key]: base }));
+    });
+  }, [preloadedPages, authState]);
+
+  // Tier 1b — fast path: once authenticated, the page/account combo you're
+  // actually looking at loads immediately, bypassing the background queue.
+  useEffect(() => {
+    if (authState !== 'authenticated' || !accessToken || !activeAccountId) return;
+    const base = iframeBases[activePage];
+    if (!base) return;
+    const key = `${activePage}::${activeAccountId}`;
     setLoadedCombos(prev => {
-      let changed = false;
-      const next = { ...prev };
+      if (prev[key]) return prev;
+      const params = new URLSearchParams({ token: accessToken, acct: activeAccountId });
+      return { ...prev, [key]: `${base}?${params.toString()}` };
+    });
+  }, [activePage, authState, accessToken, activeAccountId]);
 
-      preloadedPages.forEach(page => {
-        const base = iframeBases[page];
-        if (!base) return;
+  // Tier 2 — background queue: fill in every other missing combo, one at a
+  // time, active-page-first, so a page full of accounts never all boot
+  // together and starve the app you're actually using.
+  useEffect(() => {
+    if (backgroundQueueTimerRef.current) {
+      clearInterval(backgroundQueueTimerRef.current);
+      backgroundQueueTimerRef.current = null;
+    }
+    if (authState !== 'authenticated' || !accessToken || accounts.length === 0) return;
 
-        if (authState === 'authenticated' && accessToken && accounts.length > 0) {
-          accounts.forEach(acc => {
+    backgroundQueueTimerRef.current = setInterval(() => {
+      setLoadedCombos(prev => {
+        const pages = Array.from(preloadedPages);
+        const ordered = [activePage, ...pages.filter(p => p !== activePage)];
+        for (const page of ordered) {
+          const base = iframeBases[page];
+          if (!base) continue;
+          for (const acc of accounts) {
             const key = `${page}::${acc.account_id}`;
-            if (!next[key]) {
+            if (!prev[key]) {
               const params = new URLSearchParams({ token: accessToken, acct: acc.account_id });
-              next[key] = `${base}?${params.toString()}`;
-              changed = true;
+              return { ...prev, [key]: `${base}?${params.toString()}` };
             }
-          });
-        } else if (authState !== 'authenticated') {
-          const key = `${page}::public`;
-          if (!next[key]) {
-            next[key] = base;
-            changed = true;
           }
         }
+        return prev;
       });
+    }, 1400); // one new background combo every 1.4s — increase if apps still feel starved on refresh
 
-      return changed ? next : prev;
-    });
-  }, [preloadedPages, authState, accessToken, accounts]);
+    return () => {
+      if (backgroundQueueTimerRef.current) {
+        clearInterval(backgroundQueueTimerRef.current);
+        backgroundQueueTimerRef.current = null;
+      }
+    };
+  }, [authState, accessToken, accounts, preloadedPages, activePage]);
 
   // On logout, drop the authenticated per-account iframes (stale tokens,
   // freed resources) but keep the public/logged-out ones around.
