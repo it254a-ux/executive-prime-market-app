@@ -25,16 +25,19 @@ const HERO_IMAGES = [
 /**
  * Full-bleed rotating hero background for the logged-out dashboard screen.
  *
- * IMPORTANT: the random pick happens inside useEffect, not in a useState
- * initializer. This page has no dynamic server data, so Next.js statically
- * pre-renders it at build/deploy time — if Math.random() ran during that
- * render, the SAME random image would get baked into the static HTML and
- * served identically to every visitor until the next deploy. useEffect only
- * ever runs in the browser after the page has loaded, so the pick happens
- * fresh on every real page visit/refresh instead of once at build time.
+ * The random pick happens in useEffect (client-only), not a useState
+ * initializer, so it's fresh on every real page load instead of getting
+ * baked into the static build once.
+ *
+ * The image itself fades in via its own onLoad handler (opacity 0 -> 1),
+ * so it never pops in abruptly — it settles in smoothly first. The
+ * DashboardPage content (logo/text/cards) is timed to fade in slightly
+ * after this, via a plain CSS animation-delay, so the background reads as
+ * "arriving first" without any cross-component state syncing.
  */
 export function HeroBackground() {
   const [image, setImage] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     setImage(HERO_IMAGES[Math.floor(Math.random() * HERO_IMAGES.length)]);
@@ -43,13 +46,18 @@ export function HeroBackground() {
   return (
     <div aria-hidden style={{ position: 'absolute', inset: 0, overflow: 'hidden', zIndex: 0 }}>
       {image && (
-        <div
+        <img
+          src={`/hero/${image}`}
+          alt=""
+          onLoad={() => setLoaded(true)}
           style={{
             position: 'absolute',
             inset: 0,
-            backgroundImage: `url(/hero/${image})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            opacity: loaded ? 1 : 0,
+            transition: 'opacity 1.1s ease',
             animation: 'heroKenBurns 24s ease-in-out infinite alternate',
           }}
         />
