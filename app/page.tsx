@@ -37,10 +37,13 @@ function resolveBalance(
 
 function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
   const cards = [
-    { label: 'Charts',      icon: '📊', page: 'charts' },
-    { label: 'DTrader',     icon: '💹', page: 'dtrader' },
-    { label: 'Analysis',    icon: '🔍', page: 'analysis' },
-    { label: 'Bot Builder', icon: '🤖', page: 'botbuilder' },
+    { label: 'Charts',            icon: '📊', page: 'charts' },
+    { label: 'DTrader',           icon: '💹', page: 'dtrader' },
+    { label: 'Analysis Tool',     icon: '🔍', page: 'analysis' },
+    { label: 'Bot Builder',       icon: '🤖', page: 'botbuilder' },
+    { label: 'Free Bots by EPM',  icon: '🎁', page: 'freebots' },
+    { label: 'Copy Trading',      icon: '🔗', page: 'copytrading' },
+    { label: 'Trading Tutorials', icon: '🎓', page: 'tutorials' },
   ];
 
   return (
@@ -56,19 +59,22 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
       <div className="hero-content" style={{
         position: 'relative', zIndex: 1,
         display: 'flex', flexDirection: 'column',
-        alignItems: 'center', gap: '24px',
+        alignItems: 'center', gap: '20px',
       }}>
-        <img src="/logo.png" alt="ExecutivePrimeMarkets" className="hero-logo" style={{ height: '100px', width: 'auto' }} />
+        <h1 className="hero-wordmark">
+          Executive<span className="hero-gold">Prime</span>Markets
+        </h1>
 
         <span className="hero-underline" />
 
-        <h1 className="hero-title" style={{ color: '#c9a84c', fontSize: '28px', fontWeight: 700, margin: 0, textAlign: 'center' }}>
-          Welcome to Executive Prime Markets
-        </h1>
-        <p className="hero-sub" style={{ color: 'rgba(255,255,255,0.5)', fontSize: '15px', textAlign: 'center', maxWidth: '480px', margin: 0 }}>
-          Your all-in-one trading platform powered by Deriv. Use the menu to navigate to your tools.
+        <p className="hero-sub" style={{ color: 'rgba(255,255,255,0.75)', fontSize: '16px', textAlign: 'center', maxWidth: '520px', margin: 0 }}>
+          Professional Trading Tools, Premium Bots, Market Intelligence &amp; Financial Growth.
         </p>
-        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center', marginTop: '16px' }}>
+
+        <div style={{
+          display: 'flex', gap: '16px', flexWrap: 'wrap',
+          justifyContent: 'center', marginTop: '20px', maxWidth: '760px',
+        }}>
           {cards.map((card, i) => (
             <div
               key={card.page}
@@ -76,40 +82,44 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
               className="hero-card"
               style={{
                 background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.2)',
-                borderRadius: '12px', padding: '24px 28px', cursor: 'pointer',
-                textAlign: 'center', minWidth: '100px',
-                animationDelay: `${1.9 + i * 0.12}s`,
+                borderRadius: '12px', padding: '20px 24px', cursor: 'pointer',
+                textAlign: 'center', minWidth: '110px',
+                animationDelay: `${1.9 + i * 0.1}s`,
               }}
             >
-              <div style={{ fontSize: '32px' }}>{card.icon}</div>
-              <div style={{ color: '#c9a84c', fontSize: '13px', fontWeight: 600, marginTop: '8px' }}>{card.label}</div>
+              <div style={{ fontSize: '28px' }}>{card.icon}</div>
+              <div style={{ color: '#c9a84c', fontSize: '12px', fontWeight: 600, marginTop: '8px' }}>{card.label}</div>
             </div>
           ))}
         </div>
       </div>
 
       <style jsx>{`
-        .hero-logo {
+        .hero-wordmark {
+          font-family: 'Georgia', 'Playfair Display', serif;
+          font-size: 44px;
+          font-weight: 700;
+          color: #fff;
+          margin: 0;
+          text-align: center;
           opacity: 0;
-          transform: translateY(16px);
-          animation: fadeUp 0.9s ease-out 1.3s forwards;
+          letter-spacing: 0.18em;
+          animation: settleText 0.9s ease-out 1.3s forwards;
+        }
+        .hero-gold {
+          color: #e8c840;
         }
         .hero-underline {
           display: block;
           width: 0;
           height: 2px;
           background: linear-gradient(90deg, #c9a84c, #e8c840);
-          animation: drawLine 0.7s ease-out 1.5s forwards;
-        }
-        .hero-title {
-          opacity: 0;
-          letter-spacing: 0.18em;
-          animation: settleText 0.8s ease-out 1.6s forwards;
+          animation: drawLine 0.7s ease-out 1.6s forwards;
         }
         .hero-sub {
           opacity: 0;
           transform: translateY(14px);
-          animation: fadeUp 0.8s ease-out 1.85s forwards;
+          animation: fadeUp 0.8s ease-out 1.75s forwards;
         }
         .hero-card {
           opacity: 0;
@@ -128,11 +138,15 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
         }
         @keyframes settleText {
           from { opacity: 0; letter-spacing: 0.18em; }
-          to   { opacity: 1; letter-spacing: normal; }
+          to   { opacity: 1; letter-spacing: 0.01em; }
         }
         @keyframes cardReveal {
           from { opacity: 0; transform: translateY(12px) scale(0.94); box-shadow: 0 0 0 rgba(201,168,76,0); }
           to   { opacity: 1; transform: translateY(0) scale(1); box-shadow: 0 10px 24px rgba(201,168,76,0.12); }
+        }
+
+        @media (max-width: 640px) {
+          .hero-wordmark { font-size: 30px; }
         }
       `}</style>
     </div>
