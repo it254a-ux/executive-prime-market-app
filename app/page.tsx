@@ -549,7 +549,7 @@ function HomePageInner() {
           transition: 'transform 0.25s ease',
         }}>
           {navLinks.map(link => (
-            
+            <a
               key={link.label}
               href="#"
               onClick={e => { e.preventDefault(); handleNavClick(link.href); }}
