@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { DerivWSProvider, useDerivWSContext, LiveBalance } from '@/components/custom/deriv-ws-provider';
 import { HeroBackground } from '@/components/custom/hero-background';
+import { FreeBotsPage } from '@/components/custom/free-bots-page';
 
 const navLinks = [
   { label: 'Dashboard',         icon: '🏠', href: 'dashboard' },
@@ -567,7 +568,7 @@ function HomePageInner() {
           transition: 'transform 0.25s ease',
         }}>
           {navLinks.map(link => (
-            <a
+            
               key={link.label}
               href="#"
               onClick={e => { e.preventDefault(); handleNavClick(link.href); }}
@@ -659,7 +660,10 @@ function HomePageInner() {
           {!hasIframeBase && activePage === 'dashboard' && (
             <DashboardPage onNavigate={handleNavClick} />
           )}
-          {!hasIframeBase && activePage !== 'dashboard' && (
+          {!hasIframeBase && activePage === 'freebots' && (
+            <FreeBotsPage />
+          )}
+          {!hasIframeBase && activePage !== 'dashboard' && activePage !== 'freebots' && (
             <ComingSoonPage label={navLinks.find(l => l.href === activePage)?.label || activePage} />
           )}
         </div>
