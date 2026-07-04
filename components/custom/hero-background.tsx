@@ -1,5 +1,4 @@
 'use client';
-
 import { useState, useEffect } from 'react';
 
 const HERO_IMAGES = [
@@ -23,21 +22,14 @@ const HERO_IMAGES = [
 ];
 
 /**
- * Full-bleed rotating hero background for the logged-out dashboard screen.
- *
- * The random pick happens in useEffect (client-only), not a useState
- * initializer, so it's fresh on every real page load instead of getting
- * baked into the static build once.
- *
- * The image itself fades in via its own onLoad handler (opacity 0 -> 1),
- * so it never pops in abruptly — it settles in smoothly first. The
- * DashboardPage content (logo/text/cards) is timed to fade in slightly
- * after this, via a plain CSS animation-delay, so the background reads as
- * "arriving first" without any cross-component state syncing.
+ * Hero background: "breathes" in on load (soft scale + fade, no onLoad
+ * dependency, so it's identical every time regardless of cache), then
+ * settles into a slow, continuous zoom in/out. The zoom uses
+ * `alternate` direction so it reverses smoothly at each end instead of
+ * snapping back to the start — no visible reset, ever.
  */
 export function HeroBackground() {
   const [image, setImage] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     setImage(HERO_IMAGES[Math.floor(Math.random() * HERO_IMAGES.length)]);
@@ -46,21 +38,9 @@ export function HeroBackground() {
   return (
     <div aria-hidden style={{ position: 'absolute', inset: 0, overflow: 'hidden', zIndex: 0 }}>
       {image && (
-        <img
-          src={`/hero/${image}`}
-          alt=""
-          onLoad={() => setLoaded(true)}
-          style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            opacity: loaded ? 1 : 0,
-            transition: 'opacity 1.1s ease',
-            animation: 'heroKenBurns 24s ease-in-out infinite alternate',
-          }}
-        />
+        <div className="hero-img-wrap">
+          <img src={`/hero/${image}`} alt="" className="hero-img" />
+        </div>
       )}
       <div
         style={{
@@ -71,13 +51,28 @@ export function HeroBackground() {
         }}
       />
       <style jsx>{`
-        @keyframes heroKenBurns {
-          0% {
-            transform: scale(1) translate(0, 0);
-          }
-          100% {
-            transform: scale(1.12) translate(-1.5%, -1.5%);
-          }
+        .hero-img-wrap {
+          position: absolute;
+          inset: 0;
+          opacity: 0;
+          animation: heroBreatheIn 1.3s ease-out forwards;
+        }
+        .hero-img {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          transform: scale(1.08);
+          animation: heroZoom 22s ease-in-out 1.3s infinite alternate;
+        }
+        @keyframes heroBreatheIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes heroZoom {
+          0% { transform: scale(1.02) translate(0, 0); }
+          100% { transform: scale(1.12) translate(-1.5%, -1.5%); }
         }
       `}</style>
     </div>
