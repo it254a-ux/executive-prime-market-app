@@ -29,6 +29,30 @@ function formatBalance(balance: string): string {
   return Number(balance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+/**
+ * Centered site wordmark. If appName is exactly three words (e.g.
+ * "Executive Prime Markets"), the middle word renders gold to match the
+ * reference design. Any other name renders as a single gold serif wordmark.
+ */
+function Wordmark({ appName }: { appName?: string }) {
+  const name = (appName ?? process.env.NEXT_PUBLIC_DERIV_APP_NAME ?? 'Trading App').trim();
+  const words = name.split(/\s+/);
+
+  return (
+    <span className="font-serif tracking-wide text-lg sm:text-xl md:text-2xl select-none whitespace-nowrap">
+      {words.length === 3 ? (
+        <>
+          <span className="text-foreground">{words[0]}</span>
+          <span className="text-amber-400">{words[1]}</span>
+          <span className="text-foreground">{words[2]}</span>
+        </>
+      ) : (
+        <span className="text-amber-400">{name}</span>
+      )}
+    </span>
+  );
+}
+
 function AccountLabel({ type }: { type: 'demo' | 'real' }) {
   return (
     <span
@@ -65,6 +89,10 @@ export function Header({
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 border-b bg-background/80 backdrop-blur-sm">
+      <div className="absolute inset-x-0 top-0 bottom-0 flex items-center justify-center pointer-events-none">
+        <Wordmark appName={appName} />
+      </div>
+
       <div className="flex items-center gap-3">
         {!logoSrc || logoError ? (
           <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
@@ -79,10 +107,8 @@ export function Header({
             onError={() => setLogoError(true)}
           />
         )}
-        <h1 className="text-lg font-semibold text-foreground hidden sm:block">
-          {process.env.NEXT_PUBLIC_DERIV_APP_NAME ?? 'Deriv Trading'}
-        </h1>
       </div>
+
       <div className="flex items-center gap-3">
         {actions}
         {isAuthenticated && activeAccount && (
