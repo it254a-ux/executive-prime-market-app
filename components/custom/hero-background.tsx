@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const HERO_IMAGES = [
   '01_singapore_skyline.jpg',
@@ -22,21 +22,38 @@ const HERO_IMAGES = [
   '25_monaco_skyline.jpg',
 ];
 
+/**
+ * Full-bleed rotating hero background for the logged-out dashboard screen.
+ *
+ * IMPORTANT: the random pick happens inside useEffect, not in a useState
+ * initializer. This page has no dynamic server data, so Next.js statically
+ * pre-renders it at build/deploy time — if Math.random() ran during that
+ * render, the SAME random image would get baked into the static HTML and
+ * served identically to every visitor until the next deploy. useEffect only
+ * ever runs in the browser after the page has loaded, so the pick happens
+ * fresh on every real page visit/refresh instead of once at build time.
+ */
 export function HeroBackground() {
-  const [image] = useState(() => HERO_IMAGES[Math.floor(Math.random() * HERO_IMAGES.length)]);
+  const [image, setImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setImage(HERO_IMAGES[Math.floor(Math.random() * HERO_IMAGES.length)]);
+  }, []);
 
   return (
     <div aria-hidden style={{ position: 'absolute', inset: 0, overflow: 'hidden', zIndex: 0 }}>
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundImage: `url(/hero/${image})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          animation: 'heroKenBurns 24s ease-in-out infinite alternate',
-        }}
-      />
+      {image && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: `url(/hero/${image})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            animation: 'heroKenBurns 24s ease-in-out infinite alternate',
+          }}
+        />
+      )}
       <div
         style={{
           position: 'absolute',
