@@ -47,7 +47,7 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
   ];
 
   return (
-    <div style={{
+    <div className="page-fade-in" style={{
       flex: 1, display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
       color: '#fff', gap: '24px', padding: '40px',
@@ -95,6 +95,10 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
       </div>
 
       <style jsx>{`
+        .page-fade-in {
+          opacity: 0;
+          animation: pageFadeIn 0.4s ease forwards;
+        }
         .hero-wordmark {
           font-family: 'Georgia', 'Playfair Display', serif;
           font-size: 44px;
@@ -128,6 +132,10 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
           animation: cardReveal 0.7s ease-out forwards;
         }
 
+        @keyframes pageFadeIn {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
         @keyframes fadeUp {
           from { opacity: 0; transform: translateY(16px); }
           to   { opacity: 1; transform: translateY(0); }
@@ -155,7 +163,7 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
 
 function ComingSoonPage({ label }: { label: string }) {
   return (
-    <div style={{
+    <div className="page-fade-in" style={{
       flex: 1, display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
       color: '#fff', gap: '16px',
@@ -164,6 +172,16 @@ function ComingSoonPage({ label }: { label: string }) {
       <div style={{ fontSize: '48px' }}>🚧</div>
       <h2 style={{ color: '#c9a84c', margin: 0 }}>{label}</h2>
       <p style={{ color: 'rgba(255,255,255,0.4)', margin: 0 }}>Coming soon — check back shortly.</p>
+      <style jsx>{`
+        .page-fade-in {
+          opacity: 0;
+          animation: pageFadeIn 0.4s ease forwards;
+        }
+        @keyframes pageFadeIn {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 }
@@ -612,6 +630,7 @@ function HomePageInner() {
                   pointerEvents: isActivePage ? 'auto' : 'none',
                   zIndex: isActivePage ? 1 : 0,
                   flex: isActivePage ? 1 : undefined,
+                  transition: 'opacity 0.35s ease',
                 }}
               >
                 {pageKeys.map(key => {
@@ -627,6 +646,7 @@ function HomePageInner() {
                         opacity: isVisible ? 1 : 0,
                         pointerEvents: isVisible ? 'auto' : 'none',
                         zIndex: isVisible ? 1 : 0,
+                        transition: 'opacity 0.3s ease',
                       }}
                       title={key}
                       allow="fullscreen"
