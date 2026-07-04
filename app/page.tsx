@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { DerivWSProvider, useDerivWSContext, LiveBalance } from '@/components/custom/deriv-ws-provider';
+import { HeroBackground } from '@/components/custom/hero-background';
 
 const navLinks = [
   { label: 'Dashboard',         icon: '🏠', href: 'dashboard' },
@@ -40,31 +41,40 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
       flex: 1, display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
       color: '#fff', gap: '24px', padding: '40px',
-      background: '#181c25'
+      background: '#181c25',
+      position: 'relative',
+      overflow: 'hidden',
     }}>
-      <img src="/logo.png" alt="ExecutivePrimeMarkets" style={{ height: '100px', width: 'auto' }} />
-      <h1 style={{ color: '#c9a84c', fontSize: '28px', fontWeight: 700, margin: 0, textAlign: 'center' }}>
-        Welcome to Executive Prime Markets
-      </h1>
-      <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '15px', textAlign: 'center', maxWidth: '480px', margin: 0 }}>
-        Your all-in-one trading platform powered by Deriv. Use the menu to navigate to your tools.
-      </p>
-      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center', marginTop: '16px' }}>
-        {[
-          { label: 'Charts',      icon: '📊', page: 'charts' },
-          { label: 'DTrader',     icon: '💹', page: 'dtrader' },
-          { label: 'Analysis',    icon: '🔍', page: 'analysis' },
-          { label: 'Bot Builder', icon: '🤖', page: 'botbuilder' },
-        ].map(card => (
-          <div key={card.page} onClick={() => onNavigate(card.page)} style={{
-            background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.2)',
-            borderRadius: '12px', padding: '24px 28px', cursor: 'pointer',
-            textAlign: 'center', minWidth: '100px'
-          }}>
-            <div style={{ fontSize: '32px' }}>{card.icon}</div>
-            <div style={{ color: '#c9a84c', fontSize: '13px', fontWeight: 600, marginTop: '8px' }}>{card.label}</div>
-          </div>
-        ))}
+      <HeroBackground />
+      <div style={{
+        position: 'relative', zIndex: 1,
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', gap: '24px',
+      }}>
+        <img src="/logo.png" alt="ExecutivePrimeMarkets" style={{ height: '100px', width: 'auto' }} />
+        <h1 style={{ color: '#c9a84c', fontSize: '28px', fontWeight: 700, margin: 0, textAlign: 'center' }}>
+          Welcome to Executive Prime Markets
+        </h1>
+        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '15px', textAlign: 'center', maxWidth: '480px', margin: 0 }}>
+          Your all-in-one trading platform powered by Deriv. Use the menu to navigate to your tools.
+        </p>
+        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center', marginTop: '16px' }}>
+          {[
+            { label: 'Charts',      icon: '📊', page: 'charts' },
+            { label: 'DTrader',     icon: '💹', page: 'dtrader' },
+            { label: 'Analysis',    icon: '🔍', page: 'analysis' },
+            { label: 'Bot Builder', icon: '🤖', page: 'botbuilder' },
+          ].map(card => (
+            <div key={card.page} onClick={() => onNavigate(card.page)} style={{
+              background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.2)',
+              borderRadius: '12px', padding: '24px 28px', cursor: 'pointer',
+              textAlign: 'center', minWidth: '100px'
+            }}>
+              <div style={{ fontSize: '32px' }}>{card.icon}</div>
+              <div style={{ color: '#c9a84c', fontSize: '13px', fontWeight: 600, marginTop: '8px' }}>{card.label}</div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
