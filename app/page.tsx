@@ -12,6 +12,7 @@ const navLinks = [
   { label: 'Analysis Tool',     icon: '🔍', href: 'analysis' },
   { label: 'Bot Builder',       icon: '🤖', href: 'botbuilder' },
   { label: 'Free Bots by EPM',  icon: '🎁', href: 'freebots' },
+  { label: 'EPM Analyser Tool', icon: '📡', href: 'epmanalyser' },
   { label: 'Copy Trading',      icon: '🔗', href: 'copytrading' },
   { label: 'Trading Tutorials', icon: '🎓', href: 'tutorials' },
 ];
@@ -22,6 +23,7 @@ const iframeBases: Record<string, string> = {
   analysis:    'https://digits-epm-analysis.vercel.app',
   copytrading: 'https://epm-copy-trading.vercel.app',
   botbuilder:  'https://epm-botbuilder-uo51.vercel.app',
+  epmanalyser: 'https://digits-epm-analysis.vercel.app/epm-analyser',
 };
 
 // Prefer the live-subscribed balance when it's for the currently active
@@ -43,6 +45,7 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
     { label: 'Analysis Tool',     icon: '🔍', page: 'analysis' },
     { label: 'Bot Builder',       icon: '🤖', page: 'botbuilder' },
     { label: 'Free Bots by EPM',  icon: '🎁', page: 'freebots' },
+    { label: 'EPM Analyser Tool', icon: '📡', page: 'epmanalyser' },
     { label: 'Copy Trading',      icon: '🔗', page: 'copytrading' },
     { label: 'Trading Tutorials', icon: '🎓', page: 'tutorials' },
   ];
