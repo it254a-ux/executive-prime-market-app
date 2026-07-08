@@ -214,17 +214,18 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
   ];
   return (
     <div style={{
-      flex: 1,
+      width: '100%',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      justifyContent: 'flex-start',
       color: '#fff',
       background: '#181c25',
       position: 'relative',
-      overflow: 'visible',
-      minHeight: '100%',
-      padding: 'clamp(32px, 8vh, 80px) 20px 60px',
+      overflowX: 'hidden',
+      paddingTop: 'clamp(32px, 8vh, 80px)',
+      paddingBottom: '80px',
+      paddingLeft: '20px',
+      paddingRight: '20px',
       boxSizing: 'border-box',
     }}>
       <HeroBackground />
@@ -236,12 +237,25 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
         <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 'clamp(13px, 3vw, 16px)', textAlign: 'center', maxWidth: '520px', margin: 0, lineHeight: 1.6 }}>
           Professional Trading Tools, Premium Bots, Market Intelligence &amp; Financial Growth.
         </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '14px', width: '100%', marginTop: '12px' }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+          gap: '14px',
+          width: '100%',
+          marginTop: '12px',
+        }}>
           {cards.map(card => (
-            <div key={card.page} onClick={() => onNavigate(card.page)}
-              style={{ background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.2)', borderRadius: '12px', padding: '20px 12px', cursor: 'pointer', textAlign: 'center', transition: 'background 0.2s, box-shadow 0.2s' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = 'rgba(201,168,76,0.15)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 8px 20px rgba(201,168,76,0.15)'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = 'rgba(201,168,76,0.08)'; (e.currentTarget as HTMLDivElement).style.boxShadow = 'none'; }}
+            <div
+              key={card.page}
+              onClick={() => onNavigate(card.page)}
+              style={{
+                background: 'rgba(201,168,76,0.08)',
+                border: '1px solid rgba(201,168,76,0.2)',
+                borderRadius: '12px',
+                padding: '20px 12px',
+                cursor: 'pointer',
+                textAlign: 'center',
+              }}
             >
               <div style={{ fontSize: '28px' }}>{card.icon}</div>
               <div style={{ color: '#c9a84c', fontSize: '12px', fontWeight: 600, marginTop: '8px' }}>{card.label}</div>
@@ -255,7 +269,7 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
 
 function ComingSoonPage({ label }: { label: string }) {
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff', gap: '16px', background: '#181c25', padding: '40px 20px', boxSizing: 'border-box' }}>
+    <div style={{ width: '100%', minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff', gap: '16px', background: '#181c25', padding: '40px 20px', boxSizing: 'border-box' }}>
       <div style={{ fontSize: '48px' }}>🚧</div>
       <h2 style={{ color: '#c9a84c', margin: 0, textAlign: 'center' }}>{label}</h2>
       <p style={{ color: 'rgba(255,255,255,0.4)', margin: 0, textAlign: 'center' }}>Coming soon — check back shortly.</p>
@@ -363,10 +377,7 @@ function HomePageInner() {
   return (
     <main style={{ margin: 0, padding: 0, width: '100vw', height: '100vh', background: '#181c25', fontFamily: 'Inter, sans-serif', overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column' }}>
 
-      {/* NAV — 3 columns: LEFT / CENTER / RIGHT, nothing overlaps */}
       <nav style={{ zIndex: 200, height: '62px', flexShrink: 0, background: 'rgba(24,28,37,0.97)', borderBottom: '1px solid rgba(201,168,76,0.18)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', padding: '0 12px', gap: '8px' }}>
-
-        {/* LEFT */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
           <button onClick={() => setSidebarOpen(o => !o)} aria-label="Toggle menu"
             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
@@ -378,8 +389,6 @@ function HomePageInner() {
             <img src="/logo.png" alt="EPM logo" style={{ height: '46px', width: 'auto', display: 'block' }} />
           </a>
         </div>
-
-        {/* CENTER — auto-shrinks, never overlaps sides */}
         <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', minWidth: 0 }}>
           <span style={{ fontFamily: "'Georgia', 'Playfair Display', serif", fontSize: 'clamp(13px, 3.5vw, 19px)', fontWeight: 700, letterSpacing: '0.05em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', userSelect: 'none' }}>
             <span style={{ color: '#ffffff' }}>Executive</span>
@@ -387,19 +396,15 @@ function HomePageInner() {
             <span style={{ color: '#ffffff' }}>Markets</span>
           </span>
         </div>
-
-        {/* RIGHT */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
           <ThemeToggleButton />
           <AuthButtons />
         </div>
       </nav>
 
-      {/* BODY */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
         {sidebarOpen && <div onClick={() => setSidebarOpen(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 90 }} />}
 
-        {/* SIDEBAR */}
         <aside style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: '230px', background: '#181c25', borderRight: '1px solid rgba(201,168,76,0.12)', display: 'flex', flexDirection: 'column', padding: '16px 8px', gap: '2px', zIndex: 100, overflowY: 'auto', transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)', transition: 'transform 0.25s ease' }}>
           {navLinks.map(link => (
             <a key={link.label} href="#" onClick={e => { e.preventDefault(); handleNavClick(link.href); }}
@@ -418,8 +423,8 @@ function HomePageInner() {
           </div>
         </aside>
 
-        {/* MAIN CONTENT */}
-        <div style={{ flex: 1, position: 'relative', overflow: 'auto', display: 'flex', width: '100%' }}>
+        {/* overflowX hidden = no sideways scroll. overflowY auto = full downward scroll */}
+        <div style={{ flex: 1, position: 'relative', overflowX: 'hidden', overflowY: 'auto', display: 'flex', width: '100%' }}>
           {Array.from(preloadedPages).map(page => {
             const isActivePage = activePage === page;
             const activeKey = authState === 'authenticated' && activeAccountId ? `${page}::${activeAccountId}` : `${page}::public`;
