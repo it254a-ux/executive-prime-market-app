@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useTheme } from 'next-themes';
+import { Sun, Moon } from 'lucide-react';
 import { DerivWSProvider, useDerivWSContext, LiveBalance } from '@/components/custom/deriv-ws-provider';
 import { HeroBackground } from '@/components/custom/hero-background';
 import { FreeBotsPage } from '@/components/custom/free-bots-page';
@@ -26,8 +28,6 @@ const iframeBases: Record<string, string> = {
   epmanalyser: 'https://digits-epm-analysis.vercel.app/epm-analyser',
 };
 
-// Prefer the live-subscribed balance when it's for the currently active
-// account; otherwise fall back to the one-time snapshot from login/switch.
 function resolveBalance(
   account: { account_id: string; balance: number | string; currency: string },
   liveBalance: LiveBalance | null
@@ -36,6 +36,46 @@ function resolveBalance(
     return { balance: liveBalance.balance, currency: liveBalance.currency };
   }
   return { balance: Number(account.balance), currency: account.currency };
+}
+
+function ThemeToggleButton() {
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+  const isDark = theme === 'dark';
+  return (
+    <button
+      onClick={() => setTheme(isDark ? 'light' : 'dark')}
+      aria-label="Toggle theme"
+      style={{
+        background: 'none',
+        border: '1px solid rgba(201,168,76,0.3)',
+        borderRadius: '7px',
+        padding: '7px 10px',
+        cursor: 'pointer',
+        color: '#c9a84c',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+        transition: 'border-color 0.2s, background 0.2s',
+        marginRight: '4px',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.background = 'rgba(201,168,76,0.1)';
+        e.currentTarget.style.borderColor = 'rgba(201,168,76,0.6)';
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.background = 'none';
+        e.currentTarget.style.borderColor = 'rgba(201,168,76,0.3)';
+      }}
+    >
+      {isDark
+        ? <Sun size={16} strokeWidth={2} />
+        : <Moon size={16} strokeWidth={2} />}
+    </button>
+  );
 }
 
 function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
@@ -349,7 +389,6 @@ function HomePageInner() {
   const { auth } = useDerivWSContext();
   const { authState, accessToken, activeAccountId, accounts } = auth;
 
-  // Tracks which subpages have started loading in the background (hover-preload).
   const [preloadedPages, setPreloadedPages] = useState<Set<string>>(() => {
     const initial = new Set<string>();
     if (typeof window !== 'undefined') {
@@ -369,11 +408,6 @@ function HomePageInner() {
     });
   };
 
-  // Warm up other subpages in the background — but only after giving the
-  // page you're actually on a real head start. Heavy apps (like Bot
-  // Builder's bundle) need the network/CPU to themselves for the first
-  // few seconds; starting other apps too early competes for that and
-  // makes the page you're looking at feel slower, not faster.
   useEffect(() => {
     const pages = Object.keys(iframeBases);
     pages.forEach((page, i) => {
@@ -384,7 +418,7 @@ function HomePageInner() {
           next.add(page);
           return next;
         });
-      }, 4000 + i * 1200); // 4s head start, then one new page every 1.2s
+      }, 4000 + i * 1200);
     });
   }, []);
 
@@ -396,23 +430,9 @@ function HomePageInner() {
     window.history.pushState(null, '', newUrl);
   };
 
-  // Fully-preloaded, per-account iframe map: key = `${page}::${accountId}`
-  // (or `${page}::public` before login). Every account this user has gets
-  // its own permanently-mounted, hidden iframe for every preloaded page —
-  // so switching REAL/DEMO, or navigating between pages, is a pure
-  // visibility toggle once warmed. To avoid every account for every page
-  // booting at once (which starved the page you're actually looking at),
-  // loading is split into two tiers:
-  //   1. Fast path — the page/account you're on right now loads immediately,
-  //      unthrottled, so refreshing never feels slow.
-  //   2. Background queue — everything else (other accounts on this page,
-  //      other pages entirely) trickles in one at a time, active-page-first,
-  //      so it never competes with what's on screen.
   const [loadedCombos, setLoadedCombos] = useState<Record<string, string>>({});
   const backgroundQueueTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Tier 1a — public (logged-out) pages are lightweight (login screen only),
-  // load them immediately, no throttling needed.
   useEffect(() => {
     if (authState === 'authenticated') return;
     preloadedPages.forEach(page => {
@@ -423,8 +443,6 @@ function HomePageInner() {
     });
   }, [preloadedPages, authState]);
 
-  // Tier 1b — fast path: once authenticated, the page/account combo you're
-  // actually looking at loads immediately, bypassing the background queue.
   useEffect(() => {
     if (authState !== 'authenticated' || !accessToken || !activeAccountId) return;
     const base = iframeBases[activePage];
@@ -437,9 +455,6 @@ function HomePageInner() {
     });
   }, [activePage, authState, accessToken, activeAccountId]);
 
-  // Tier 2 — background queue: fill in every other missing combo, one at a
-  // time, active-page-first, so a page full of accounts never all boot
-  // together and starve the app you're actually using.
   useEffect(() => {
     if (backgroundQueueTimerRef.current) {
       clearInterval(backgroundQueueTimerRef.current);
@@ -464,7 +479,7 @@ function HomePageInner() {
         }
         return prev;
       });
-    }, 1400); // one new background combo every 1.4s — increase if apps still feel starved on refresh
+    }, 1400);
 
     return () => {
       if (backgroundQueueTimerRef.current) {
@@ -474,8 +489,6 @@ function HomePageInner() {
     };
   }, [authState, accessToken, accounts, preloadedPages, activePage]);
 
-  // On logout, drop the authenticated per-account iframes (stale tokens,
-  // freed resources) but keep the public/logged-out ones around.
   useEffect(() => {
     if (authState === 'authenticated') return;
     setLoadedCombos(prev => {
@@ -522,8 +535,7 @@ function HomePageInner() {
           {[0, 1, 2].map(i => (
             <span key={i} style={{
               display: 'block', width: '22px', height: '2px',
-              background: '#c9a84c',
-              borderRadius: '2px',
+              background: '#c9a84c', borderRadius: '2px',
               transform: sidebarOpen
                 ? (i === 0 ? 'rotate(45deg) translate(5px, 5px)' : i === 2 ? 'rotate(-45deg) translate(5px, -5px)' : 'scaleX(0)')
                 : 'none',
@@ -538,8 +550,27 @@ function HomePageInner() {
             style={{ height: '55px', width: 'auto', display: 'block' }} />
         </a>
 
+        {/* Centered site name — matches the hero dashboard wordmark style */}
+        <div style={{
+          position: 'absolute', left: 0, right: 0,
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          pointerEvents: 'none',
+        }}>
+          <span style={{
+            fontFamily: "'Georgia', 'Playfair Display', serif",
+            fontSize: '19px', fontWeight: 700,
+            letterSpacing: '0.06em', whiteSpace: 'nowrap',
+            userSelect: 'none',
+          }}>
+            <span style={{ color: '#ffffff' }}>Executive</span>
+            <span style={{ color: '#e8c840' }}>Prime</span>
+            <span style={{ color: '#ffffff' }}>Markets</span>
+          </span>
+        </div>
+
         <div style={{ flex: 1 }} />
 
+        <ThemeToggleButton />
         <AuthButtons />
       </nav>
 
