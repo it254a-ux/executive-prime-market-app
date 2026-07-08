@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { IBM_Plex_Sans } from 'next/font/google';
 import { buildFaviconUri } from '@/lib/build-favicon-uri';
 import { getLogoSrc } from '@/lib/get-logo-src';
@@ -10,6 +10,12 @@ import '@/app/globals.css';
 import './globals.css';
 import '@deriv-com/smartcharts-champion/dist/smartcharts.css';
 import './custom.css';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+};
+
 // SmartCharts declares `font-family: IBM Plex Sans, sans-serif` internally.
 const ibmPlexSans = IBM_Plex_Sans({
   subsets: ['latin'],
@@ -17,6 +23,7 @@ const ibmPlexSans = IBM_Plex_Sans({
   variable: '--font-ibm-plex-sans',
   display: 'swap',
 });
+
 export function generateMetadata(): Metadata {
   const faviconUri = buildFaviconUri();
   return {
@@ -25,9 +32,11 @@ export function generateMetadata(): Metadata {
     ...(faviconUri ? { icons: { icon: faviconUri } } : {}),
   };
 }
+
 const fontClass =
   FONT_CLASS_MAP[process.env.NEXT_PUBLIC_FONT_FAMILY ?? 'Inter'] ??
   inter.className;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const logoSrc = getLogoSrc();
   return (
