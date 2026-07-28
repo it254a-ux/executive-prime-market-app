@@ -375,7 +375,7 @@ function HomePageInner() {
   const hasIframeBase = !!iframeBases[activePage];
 
   return (
-    <main style={{ margin: 0, padding: 0, width: '100vw', height: '100vh', background: '#181c25', fontFamily: 'Inter, sans-serif', overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+    <main style={{ margin: 0, padding: 0, width: '100vw', height: '100dvh', background: '#181c25', fontFamily: 'Inter, sans-serif', overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column' }}>
 
       <nav style={{ zIndex: 200, height: '62px', flexShrink: 0, background: 'rgba(24,28,37,0.97)', borderBottom: '1px solid rgba(201,168,76,0.18)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', padding: '0 12px', gap: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
