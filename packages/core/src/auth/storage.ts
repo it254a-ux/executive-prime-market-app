@@ -6,20 +6,20 @@ const AUTH_INFO_KEY = 'auth_info';
 const DERIV_ACCOUNTS_KEY = 'deriv_accounts';
 const ACTIVE_LOGINID_KEY = 'active_loginid';
 const ACCOUNT_TYPE_KEY = 'account_type';
-
 const TOKEN_MAX_AGE_MS = 10 * 60 * 1000; // 10 minutes
 
 // --- CSRF Token ---
-
+// Stored in localStorage (not sessionStorage) because the OAuth redirect chain
+// (app -> Deriv -> Google -> Deriv -> app) can span a tab reload/kill on mobile
+// browsers, which wipes sessionStorage. localStorage survives that, and the
+// value is still cleared immediately after use via clearCSRFToken().
 export function storeCSRFToken(token: string): void {
   const stored: StoredCSRFToken = { value: token, createdAt: Date.now() };
-  sessionStorage.setItem(CSRF_TOKEN_KEY, JSON.stringify(stored));
+  localStorage.setItem(CSRF_TOKEN_KEY, JSON.stringify(stored));
 }
-
 export function getCSRFToken(): string | null {
-  const raw = sessionStorage.getItem(CSRF_TOKEN_KEY);
+  const raw = localStorage.getItem(CSRF_TOKEN_KEY);
   if (!raw) return null;
-
   const stored: StoredCSRFToken = JSON.parse(raw);
   if (Date.now() - stored.createdAt > TOKEN_MAX_AGE_MS) {
     clearCSRFToken();
@@ -27,22 +27,20 @@ export function getCSRFToken(): string | null {
   }
   return stored.value;
 }
-
 export function clearCSRFToken(): void {
-  sessionStorage.removeItem(CSRF_TOKEN_KEY);
+  localStorage.removeItem(CSRF_TOKEN_KEY);
 }
 
 // --- PKCE Code Verifier ---
-
+// Same reasoning as the CSRF token above: localStorage survives the mobile
+// tab reload/kill that can happen mid-redirect; it's cleared right after use.
 export function storeCodeVerifier(verifier: string): void {
   const stored: StoredCodeVerifier = { value: verifier, createdAt: Date.now() };
-  sessionStorage.setItem(CODE_VERIFIER_KEY, JSON.stringify(stored));
+  localStorage.setItem(CODE_VERIFIER_KEY, JSON.stringify(stored));
 }
-
 export function getCodeVerifier(): string | null {
-  const raw = sessionStorage.getItem(CODE_VERIFIER_KEY);
+  const raw = localStorage.getItem(CODE_VERIFIER_KEY);
   if (!raw) return null;
-
   const stored: StoredCodeVerifier = JSON.parse(raw);
   if (Date.now() - stored.createdAt > TOKEN_MAX_AGE_MS) {
     clearCodeVerifier();
@@ -50,70 +48,57 @@ export function getCodeVerifier(): string | null {
   }
   return stored.value;
 }
-
 export function clearCodeVerifier(): void {
-  sessionStorage.removeItem(CODE_VERIFIER_KEY);
+  localStorage.removeItem(CODE_VERIFIER_KEY);
 }
 
 // --- Auth Info ---
-
 export function storeAuthInfo(authInfo: AuthInfo): void {
   localStorage.setItem(AUTH_INFO_KEY, JSON.stringify(authInfo));
 }
-
 export function getAuthInfo(): AuthInfo | null {
   const raw = localStorage.getItem(AUTH_INFO_KEY);
   if (!raw) return null;
-
   const authInfo: AuthInfo = JSON.parse(raw);
   if (authInfo.expires_at && Date.now() > authInfo.expires_at * 1000) {
     return null; // Token expired
   }
   return authInfo;
 }
-
 export function clearAuthInfo(): void {
   localStorage.removeItem(AUTH_INFO_KEY);
 }
 
 // --- Deriv Accounts ---
-
 export function storeDerivAccounts(accounts: DerivAccount[]): void {
   localStorage.setItem(DERIV_ACCOUNTS_KEY, JSON.stringify(accounts));
 }
-
 export function getDerivAccounts(): DerivAccount[] | null {
   const raw = localStorage.getItem(DERIV_ACCOUNTS_KEY);
   if (!raw) return null;
   return JSON.parse(raw);
 }
-
 export function clearDerivAccounts(): void {
   localStorage.removeItem(DERIV_ACCOUNTS_KEY);
 }
 
 // --- Active Login ID (localStorage) ---
-
 export function setActiveLoginId(loginId: string): void {
   localStorage.setItem(ACTIVE_LOGINID_KEY, loginId);
 }
-
 export function getActiveLoginId(): string | null {
   return localStorage.getItem(ACTIVE_LOGINID_KEY);
 }
 
 // --- Account Type (localStorage) ---
-
 export function setAccountType(type: 'demo' | 'real'): void {
   localStorage.setItem(ACCOUNT_TYPE_KEY, type);
 }
-
 export function getAccountType(): string | null {
   return localStorage.getItem(ACCOUNT_TYPE_KEY);
 }
 
 // --- Clear All Auth Data ---
-
 export function clearAllAuthData(): void {
   clearCSRFToken();
   clearCodeVerifier();
