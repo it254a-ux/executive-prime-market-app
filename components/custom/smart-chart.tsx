@@ -122,6 +122,65 @@ export function SmartChartWrapper({
     setIsReadyToMount(true);
   }, []);
 
+  // While Flutter's engine is still downloading/initializing (its JS runtime,
+  // WebAssembly binary, and fonts), the chart element can silently capture
+  // touch gestures — including vertical scroll swipes — before it has
+  // anything ready to render. That makes the page's scroll feel "locked" for
+  // as long as Flutter takes to boot, even though the rest of the page
+  // (buttons, other UI) responds fine the whole time.
+  //
+  // Flutter web dispatches a `flutter-first-frame` event on `window` once its
+  // engine has actually painted something and is ready to receive input.
+  // Until that fires, we set `pointer-events: none` on the chart's wrapper so
+  // touch gestures (like scrolling) pass through to the page underneath
+  // instead of being swallowed by the still-loading chart. A fallback timer
+  // flips it on regardless after 15s, in case this build of the library
+  // doesn't dispatch that event.
+  const [isChartReady, setIsChartReady] = useState(false);
+  useEffect(() => {
+    const handleFirstFrame = () => setIsChartReady(true);
+    window.addEventListener('flutter-first-frame', handleFirstFrame);
+    const fallbackTimer = setTimeout(() => setIsChartReady(true), 15000);
+    return () => {
+      window.removeEventListener('flutter-first-frame', handleFirstFrame);
+      clearTimeout(fallbackTimer);
+    };
+  }, []);
+
+  // Belt-and-suspenders JS companion to the CSS rule in custom.css.
+  //
+  // Flutter web injects an <flt-glass-pane> element that captures ALL pointer
+  // input at the browser engine level — including vertical scroll — regardless
+  // of any CSS pointer-events rules set on parent React elements. The CSS fix
+  // (flt-glass-pane { touch-action: pan-y }) handles this at parse time, but
+  // some Android WebViews apply inline element styles lazily, creating a brief
+  // gap where the glass pane still blocks scroll. This MutationObserver fires
+  // the instant Flutter injects the element and immediately applies touchAction
+  // via JS, closing that gap and guaranteeing smooth scroll from the first touch.
+  useEffect(() => {
+    const applyScrollFix = (el: HTMLElement) => {
+      el.style.touchAction = 'pan-y';
+    };
+
+    // Glass pane may already exist if Flutter initialized very quickly
+    const existing = document.querySelector('flt-glass-pane') as HTMLElement | null;
+    if (existing) {
+      applyScrollFix(existing);
+      return;
+    }
+
+    // Watch for Flutter to inject the glass pane into the DOM
+    const observer = new MutationObserver(() => {
+      const pane = document.querySelector('flt-glass-pane') as HTMLElement | null;
+      if (pane) {
+        applyScrollFix(pane);
+        observer.disconnect();
+      }
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
   const { resolvedTheme } = useTheme();
   const chartTheme =
     (resolvedTheme ?? (document.documentElement.classList.contains('dark') ? 'dark' : 'light')) === 'dark'
@@ -156,7 +215,10 @@ export function SmartChartWrapper({
   );
 
   return (
-    <div className="relative h-full min-h-0 w-full overflow-clip rounded-md border border-border/50 dark:border-white/[0.08] bg-muted/30">
+    <div
+      className="relative h-full min-h-0 w-full overflow-clip rounded-md border border-border/50 dark:border-white/[0.08] bg-muted/30"
+      style={{ pointerEvents: isChartReady ? 'auto' : 'none' }}
+    >
       {isReadyToMount && <SmartChart
         key={symbolKey}
         chartControlsWidgets={null}
