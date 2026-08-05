@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
@@ -24,6 +24,11 @@ interface HeaderProps {
   /** Optional controls rendered to the left of the login/logout button (e.g. a theme toggle). */
   actions?: React.ReactNode;
 }
+
+// Scroll must move past this many pixels from the top before the
+// scroll-away behaviour kicks in, so tiny scroll jitter near the top
+// doesn't hide the header.
+const SCROLL_HIDE_THRESHOLD = 80;
 
 function formatBalance(balance: string): string {
   return Number(balance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -87,8 +92,59 @@ export function Header({
   const isAuthenticated = authState === 'authenticated';
   const isAuthenticating = authState === 'authenticating';
 
+  // Auto-collapse: the header slides away when the user scrolls down past
+  // the threshold, or clicks anywhere in the page outside the header. It
+  // reappears when the user scrolls back up (or all the way to the top).
+  const [collapsed, setCollapsed] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    lastScrollY.current = window.scrollY;
+
+    const handleScroll = () => {
+      const currentY = window.scrollY;
+      const previousY = lastScrollY.current;
+
+      if (currentY <= SCROLL_HIDE_THRESHOLD) {
+        // Always show near the top of the page.
+        setCollapsed(false);
+      } else if (currentY > previousY) {
+        // Scrolling down — collapse.
+        setCollapsed(true);
+      } else if (currentY < previousY) {
+        // Scrolling up — reveal.
+        setCollapsed(false);
+      }
+
+      lastScrollY.current = currentY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      // Ignore clicks inside the header itself (logo, account switcher,
+      // login/logout, etc.) — only clicks elsewhere on the page collapse it.
+      if (headerRef.current && !headerRef.current.contains(event.target as Node)) {
+        setCollapsed(true);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, []);
+
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 border-b bg-background/80 backdrop-blur-sm">
+    <header
+      ref={headerRef}
+      className={cn(
+        'fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 py-3 border-b bg-background/80 backdrop-blur-sm transition-transform duration-300 ease-in-out',
+        collapsed ? '-translate-y-full' : 'translate-y-0'
+      )}
+    >
       <div className="absolute inset-x-0 top-0 bottom-0 flex items-center justify-center pointer-events-none">
         <Wordmark appName={appName} />
       </div>
