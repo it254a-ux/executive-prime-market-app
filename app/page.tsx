@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTheme } from 'next-themes';
 import { Sun, Moon } from 'lucide-react';
 import { DerivWSProvider, useDerivWSContext, LiveBalance } from '@/components/custom/deriv-ws-provider';
@@ -27,6 +27,12 @@ const iframeBases: Record<string, string> = {
   botbuilder:  'https://epm-botbuilder-uo51.vercel.app',
   epmanalyser: 'https://digits-epm-analysis.vercel.app/epm-analyser',
 };
+
+// Theme sync protocol used to keep every embedded iframe app's theme in
+// lockstep with this outer shell's theme (next-themes state does not cross
+// iframe/origin boundaries on its own).
+const THEME_REQUEST_MSG = 'epm-theme-request';
+const THEME_UPDATE_MSG = 'epm-theme-update';
 
 function resolveBalance(
   account: { account_id: string; balance: number | string; currency: string },
@@ -213,6 +219,13 @@ function HomePageInner() {
   const { auth } = useDerivWSContext();
   const { authState, accessToken, activeAccountId, accounts } = auth;
 
+  // Outer shell theme — this is the single source of truth that gets pushed
+  // down to every embedded iframe app via postMessage, since next-themes
+  // state does not cross iframe/origin boundaries on its own.
+  const { theme } = useTheme();
+  const [themeMounted, setThemeMounted] = useState(false);
+  useEffect(() => setThemeMounted(true), []);
+
   // Sidebar starts collapsed to an icon-only rail. Hovering over it expands
   // it to show labels; clicking the menu icon pins it open (useful on
   // touch devices where there's no hover) until clicked again.
@@ -250,6 +263,16 @@ function HomePageInner() {
 
   const [loadedCombos, setLoadedCombos] = useState<Record<string, string>>({});
   const backgroundQueueTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Refs to every currently-mounted iframe, keyed by the same combo key used
+  // in loadedCombos, so we can postMessage theme updates directly to them.
+  const iframeRefs = useRef<Record<string, HTMLIFrameElement | null>>({});
+
+  // Every distinct origin we might embed — used to validate incoming
+  // postMessage requests so we only ever reply to our own iframes.
+  const allowedOrigins = useMemo(
+    () => Array.from(new Set(Object.values(iframeBases).map(base => new URL(base).origin))),
+    []
+  );
 
   useEffect(() => {
     if (authState === 'authenticated') return;
@@ -301,6 +324,37 @@ function HomePageInner() {
       return changed ? next : prev;
     });
   }, [authState]);
+
+  // Reply to "what's the current theme?" requests from any embedded iframe,
+  // but only if the request came from one of our own known iframe origins.
+  useEffect(() => {
+    if (!themeMounted) return;
+    function handleThemeRequest(event: MessageEvent) {
+      if (!allowedOrigins.includes(event.origin)) return;
+      if (event.data?.type !== THEME_REQUEST_MSG) return;
+      const win = event.source as Window | null;
+      win?.postMessage({ type: THEME_UPDATE_MSG, theme: theme === 'dark' ? 'dark' : 'light' }, event.origin);
+    }
+    window.addEventListener('message', handleThemeRequest);
+    return () => window.removeEventListener('message', handleThemeRequest);
+  }, [theme, themeMounted, allowedOrigins]);
+
+  // Whenever the outer theme changes, immediately push it to every
+  // currently-loaded iframe so they update live (not just on next reload).
+  useEffect(() => {
+    if (!themeMounted) return;
+    Object.entries(iframeRefs.current).forEach(([key, el]) => {
+      if (!el) return;
+      const src = loadedCombos[key];
+      if (!src) return;
+      try {
+        const origin = new URL(src).origin;
+        el.contentWindow?.postMessage({ type: THEME_UPDATE_MSG, theme: theme === 'dark' ? 'dark' : 'light' }, origin);
+      } catch {
+        // ignore malformed src
+      }
+    });
+  }, [theme, themeMounted, loadedCombos]);
 
   const hasIframeBase = !!iframeBases[activePage];
 
@@ -370,7 +424,16 @@ function HomePageInner() {
             <div key={page} style={{ width: '100%', height: '100%', position: isActivePage ? 'static' : 'absolute', top: 0, left: 0, opacity: isActivePage ? 1 : 0, pointerEvents: isActivePage ? 'auto' : 'none', zIndex: isActivePage ? 1 : 0, flex: isActivePage ? 1 : undefined, transition: 'opacity 0.35s ease' }}>
               {pageKeys.map(key => {
                 const src = loadedCombos[key]; const isVisible = key === activeKey;
-                return <iframe key={key} src={src} title={key} allow="fullscreen" style={{ width: '100%', height: '100%', border: 'none', position: 'absolute', top: 0, left: 0, opacity: isVisible ? 1 : 0, pointerEvents: isVisible ? 'auto' : 'none', zIndex: isVisible ? 1 : 0, transition: 'opacity 0.3s ease' }} />;
+                return (
+                  <iframe
+                    key={key}
+                    ref={el => { iframeRefs.current[key] = el; }}
+                    src={src}
+                    title={key}
+                    allow="fullscreen"
+                    style={{ width: '100%', height: '100%', border: 'none', position: 'absolute', top: 0, left: 0, opacity: isVisible ? 1 : 0, pointerEvents: isVisible ? 'auto' : 'none', zIndex: isVisible ? 1 : 0, transition: 'opacity 0.3s ease' }}
+                  />
+                );
               })}
             </div>
           );
