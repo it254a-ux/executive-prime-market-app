@@ -6,6 +6,7 @@ import { Sun, Moon, Menu, X } from 'lucide-react';
 import { DerivWSProvider, useDerivWSContext, LiveBalance } from '@/components/custom/deriv-ws-provider';
 import { HeroBackground } from '@/components/custom/hero-background';
 import { FreeBotsPage } from '@/components/custom/free-bots-page';
+import { TradingTutorialsPage } from '@/components/custom/trading-tutorials-page';
 
 const navLinks = [
   { label: 'Dashboard',         icon: '🏠', href: 'dashboard' },
@@ -455,7 +456,8 @@ function HomePageInner() {
         })}
         {!hasIframeBase && activePage === 'dashboard' && <DashboardPage onNavigate={handleNavClick} />}
         {!hasIframeBase && activePage === 'freebots'   && <FreeBotsPage />}
-        {!hasIframeBase && activePage !== 'dashboard' && activePage !== 'freebots' && (
+        {!hasIframeBase && activePage === 'tutorials'  && <TradingTutorialsPage />}
+        {!hasIframeBase && activePage !== 'dashboard' && activePage !== 'freebots' && activePage !== 'tutorials' && (
           <ComingSoonPage label={navLinks.find(l => l.href === activePage)?.label || activePage} />
         )}
       </div>
