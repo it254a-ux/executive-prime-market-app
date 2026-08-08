@@ -42,30 +42,6 @@ function resolveBalance(
   return { balance: Number(account.balance), currency: account.currency };
 }
 
-function ThemeToggleButton() {
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  if (!mounted) return null;
-  const isDark = theme === 'dark';
-  return (
-    <button
-      onClick={() => setTheme(isDark ? 'light' : 'dark')}
-      aria-label="Toggle theme"
-      style={{
-        background: 'none', border: '1px solid rgba(201,168,76,0.3)', borderRadius: '7px',
-        padding: '7px 10px', cursor: 'pointer', color: '#c9a84c',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        transition: 'border-color 0.2s, background 0.2s',
-      }}
-      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(201,168,76,0.1)'; e.currentTarget.style.borderColor = 'rgba(201,168,76,0.6)'; }}
-      onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.borderColor = 'rgba(201,168,76,0.3)'; }}
-    >
-      {isDark ? <Sun size={16} strokeWidth={2} /> : <Moon size={16} strokeWidth={2} />}
-    </button>
-  );
-}
-
 function SidebarAuth({ onClose }: { onClose: () => void }) {
   const { auth, liveBalance } = useDerivWSContext();
   const { authState, activeAccount, accounts, activeAccountId, login, signUp, logout, switchAccount } = auth;
@@ -218,7 +194,7 @@ function HomePageInner() {
   // Outer shell theme — this is the single source of truth that gets pushed
   // down to every embedded iframe app via postMessage, since next-themes
   // state does not cross iframe/origin boundaries on its own.
-  const { theme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const [themeMounted, setThemeMounted] = useState(false);
   useEffect(() => setThemeMounted(true), []);
 
@@ -369,13 +345,32 @@ function HomePageInner() {
       {/* Small fixed menu button — always visible, does not affect layout.
           Opens the floating sidebar panel. */}
       {!sidebarOpen && (
-        <button
-          onClick={() => setSidebarOpen(true)}
-          aria-label="Open menu"
-          style={{ position: 'fixed', top: '14px', left: '14px', zIndex: 150, background: '#181c25', border: '1px solid rgba(201,168,76,0.25)', borderRadius: '8px', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}
+        <div
+          style={{
+            position: 'fixed', top: '14px', left: '14px', zIndex: 150,
+            display: 'flex', alignItems: 'stretch',
+            background: '#181c25', border: '1px solid rgba(201,168,76,0.25)',
+            borderRadius: '10px', overflow: 'hidden',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+          }}
         >
-          <Menu size={20} color="#c9a84c" strokeWidth={2} />
-        </button>
+          <button
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open menu"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Menu size={15} color="#c9a84c" strokeWidth={2} />
+          </button>
+          {themeMounted && (
+            <button
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              aria-label="Toggle theme"
+              style={{ background: 'none', border: 'none', borderLeft: '1px solid rgba(201,168,76,0.25)', cursor: 'pointer', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              {theme === 'dark' ? <Sun size={14} color="#c9a84c" strokeWidth={2} /> : <Moon size={14} color="#c9a84c" strokeWidth={2} />}
+            </button>
+          )}
+        </div>
       )}
 
       {/* Backdrop — click to close, sits behind the panel but above the page content. */}
@@ -413,10 +408,6 @@ function HomePageInner() {
           >
             <X size={20} strokeWidth={2} />
           </button>
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: '10px', borderBottom: '1px solid rgba(201,168,76,0.12)', marginBottom: '8px' }}>
-          <ThemeToggleButton />
         </div>
 
         {navLinks.map(link => (
