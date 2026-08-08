@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTheme } from 'next-themes';
-import { Sun, Moon } from 'lucide-react';
+import { Sun, Moon, Menu, X } from 'lucide-react';
 import { DerivWSProvider, useDerivWSContext, LiveBalance } from '@/components/custom/deriv-ws-provider';
 import { HeroBackground } from '@/components/custom/hero-background';
 import { FreeBotsPage } from '@/components/custom/free-bots-page';
@@ -226,12 +226,20 @@ function HomePageInner() {
   const [themeMounted, setThemeMounted] = useState(false);
   useEffect(() => setThemeMounted(true), []);
 
-  // Sidebar starts collapsed to an icon-only rail. Hovering over it expands
-  // it to show labels; clicking the menu icon pins it open (useful on
-  // touch devices where there's no hover) until clicked again.
-  const [sidebarHovered, setSidebarHovered] = useState(false);
-  const [sidebarPinned, setSidebarPinned] = useState(false);
-  const sidebarExpanded = sidebarHovered || sidebarPinned;
+  // Sidebar is now a floating panel: closed by default (just the menu
+  // button shows), opened by clicking the menu button, closed via the X
+  // inside the panel, the backdrop, or the Escape key. It overlays the
+  // page instead of pushing/compressing the content.
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setSidebarOpen(false);
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [sidebarOpen]);
 
   const [preloadedPages, setPreloadedPages] = useState<Set<string>>(() => {
     const initial = new Set<string>();
@@ -259,6 +267,7 @@ function HomePageInner() {
     handleNavHover(href);
     setActivePage(href);
     window.history.pushState(null, '', href === 'dashboard' ? '/' : `/${href}`);
+    setSidebarOpen(false);
   };
 
   const [loadedCombos, setLoadedCombos] = useState<Record<string, string>>({});
@@ -359,36 +368,56 @@ function HomePageInner() {
   const hasIframeBase = !!iframeBases[activePage];
 
   return (
-    <main style={{ margin: 0, padding: 0, width: '100vw', height: '100dvh', background: '#181c25', fontFamily: 'Inter, sans-serif', overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'row' }}>
+    <main style={{ margin: 0, padding: 0, width: '100vw', height: '100dvh', background: '#181c25', fontFamily: 'Inter, sans-serif', overflow: 'hidden', position: 'relative' }}>
 
-      {/* Collapsible vertical sidebar: icon-only rail by default, expands on hover
-          (or when pinned via the menu icon, for touch devices without hover). */}
-      <aside
-        onMouseEnter={() => setSidebarHovered(true)}
-        onMouseLeave={() => setSidebarHovered(false)}
-        style={{ position: 'relative', flexShrink: 0, width: sidebarExpanded ? '220px' : '68px', height: '100%', background: '#181c25', borderRight: '1px solid rgba(201,168,76,0.12)', display: 'flex', flexDirection: 'column', padding: '14px 8px 12px', gap: '2px', zIndex: 100, overflowX: 'hidden', overflowY: 'auto', transition: 'width 0.2s ease' }}
-      >
-        {/* Menu icon: always visible, click pins the sidebar open (independent of hover) */}
+      {/* Small fixed menu button — always visible, does not affect layout.
+          Opens the floating sidebar panel. */}
+      {!sidebarOpen && (
         <button
-          onClick={() => setSidebarPinned(p => !p)}
-          aria-label="Toggle sidebar"
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', margin: sidebarExpanded ? '0 0 6px 4px' : '0 auto 6px', display: 'flex', flexDirection: 'column', gap: '5px', flexShrink: 0, alignSelf: sidebarExpanded ? 'flex-start' : 'center' }}
+          onClick={() => setSidebarOpen(true)}
+          aria-label="Open menu"
+          style={{ position: 'fixed', top: '14px', left: '14px', zIndex: 150, background: '#181c25', border: '1px solid rgba(201,168,76,0.25)', borderRadius: '8px', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}
         >
-          {[0, 1, 2].map(i => (
-            <span key={i} style={{ display: 'block', width: '18px', height: '2px', background: '#c9a84c', borderRadius: '2px' }} />
-          ))}
+          <Menu size={20} color="#c9a84c" strokeWidth={2} />
         </button>
+      )}
 
-        <a href="/" onClick={e => { e.preventDefault(); handleNavClick('dashboard'); }} style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '0 8px 14px' }}>
-          <img src="/logo.png" alt="EPM logo" style={{ height: '36px', width: 'auto', display: 'block', flexShrink: 0 }} />
-          {sidebarExpanded && (
-            <span style={{ fontFamily: "'Georgia', 'Playfair Display', serif", fontSize: '15px', fontWeight: 700, letterSpacing: '0.04em', textAlign: 'center', whiteSpace: 'nowrap', userSelect: 'none' }}>
+      {/* Backdrop — click to close, sits behind the panel but above the page content. */}
+      {sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 140, transition: 'opacity 0.2s ease' }}
+        />
+      )}
+
+      {/* Floating sidebar panel — overlays the page rather than pushing/compressing it. */}
+      <aside
+        style={{
+          position: 'fixed', top: 0, left: 0, height: '100%', width: '240px',
+          background: '#181c25', borderRight: '1px solid rgba(201,168,76,0.12)',
+          display: 'flex', flexDirection: 'column', padding: '14px 12px 12px', gap: '2px',
+          zIndex: 150, overflowY: 'auto', boxShadow: '4px 0 24px rgba(0,0,0,0.4)',
+          transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
+          transition: 'transform 0.22s ease',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+          <a href="/" onClick={e => { e.preventDefault(); handleNavClick('dashboard'); }} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <img src="/logo.png" alt="EPM logo" style={{ height: '30px', width: 'auto', display: 'block', flexShrink: 0 }} />
+            <span style={{ fontFamily: "'Georgia', 'Playfair Display', serif", fontSize: '14px', fontWeight: 700, letterSpacing: '0.03em', whiteSpace: 'nowrap', userSelect: 'none' }}>
               <span style={{ color: '#ffffff' }}>Executive</span>
               <span style={{ color: '#e8c840' }}>Prime</span>
               <span style={{ color: '#ffffff' }}>Markets</span>
             </span>
-          )}
-        </a>
+          </a>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Close menu"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.6)', flexShrink: 0 }}
+          >
+            <X size={20} strokeWidth={2} />
+          </button>
+        </div>
 
         <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: '10px', borderBottom: '1px solid rgba(201,168,76,0.12)', marginBottom: '8px' }}>
           <ThemeToggleButton />
@@ -397,25 +426,24 @@ function HomePageInner() {
         {navLinks.map(link => (
           <a key={link.label} href="#" onClick={e => { e.preventDefault(); handleNavClick(link.href); }}
             title={link.label}
-            style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: sidebarExpanded ? '10px 12px' : '10px 0', justifyContent: sidebarExpanded ? 'flex-start' : 'center', borderRadius: '8px', color: activePage === link.href ? '#c9a84c' : 'rgba(255,255,255,0.6)', fontSize: '13px', textDecoration: 'none', whiteSpace: 'nowrap', borderLeft: activePage === link.href ? '2px solid #c9a84c' : '2px solid transparent', background: activePage === link.href ? 'rgba(201,168,76,0.08)' : 'transparent', transition: 'all 0.15s' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', justifyContent: 'flex-start', borderRadius: '8px', color: activePage === link.href ? '#c9a84c' : 'rgba(255,255,255,0.6)', fontSize: '13px', textDecoration: 'none', whiteSpace: 'nowrap', borderLeft: activePage === link.href ? '2px solid #c9a84c' : '2px solid transparent', background: activePage === link.href ? 'rgba(201,168,76,0.08)' : 'transparent', transition: 'all 0.15s' }}
             onMouseEnter={e => { handleNavHover(link.href); if (activePage !== link.href) { e.currentTarget.style.color = '#c9a84c'; e.currentTarget.style.background = 'rgba(201,168,76,0.08)'; e.currentTarget.style.borderLeftColor = '#c9a84c'; } }}
             onMouseLeave={e => { if (activePage !== link.href) { e.currentTarget.style.color = 'rgba(255,255,255,0.6)'; e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderLeftColor = 'transparent'; } }}
           >
             <span style={{ fontSize: '16px', flexShrink: 0 }}>{link.icon}</span>
-            {sidebarExpanded && link.label}
+            {link.label}
           </a>
         ))}
         <div style={{ flex: 1 }} />
-        {sidebarExpanded && <SidebarAuth onClose={() => {}} />}
-        {sidebarExpanded && (
-          <div style={{ padding: '12px', fontSize: '10px', color: 'rgba(255,255,255,0.18)', letterSpacing: '1.5px', borderTop: '1px solid rgba(201,168,76,0.1)', marginTop: '8px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-            POWERED BY <span style={{ color: 'rgba(201,168,76,0.4)' }}>DERIV</span>
-          </div>
-        )}
+        <SidebarAuth onClose={() => setSidebarOpen(false)} />
+        <div style={{ padding: '12px', fontSize: '10px', color: 'rgba(255,255,255,0.18)', letterSpacing: '1.5px', borderTop: '1px solid rgba(201,168,76,0.1)', marginTop: '8px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+          POWERED BY <span style={{ color: 'rgba(201,168,76,0.4)' }}>DERIV</span>
+        </div>
       </aside>
 
-      {/* Main content area now takes full remaining height, no top bar reserved */}
-      <div style={{ flex: 1, position: 'relative', overflowX: 'hidden', overflowY: 'auto', display: 'flex', width: '100%', height: '100%' }}>
+      {/* Main content area — full width always, since the sidebar no longer
+          takes up layout space (it floats on top instead). */}
+      <div style={{ width: '100%', height: '100%', position: 'relative', overflowX: 'hidden', overflowY: 'auto', display: 'flex' }}>
         {Array.from(preloadedPages).map(page => {
           const isActivePage = activePage === page;
           const activeKey = authState === 'authenticated' && activeAccountId ? `${page}::${activeAccountId}` : `${page}::public`;
