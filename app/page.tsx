@@ -393,9 +393,9 @@ function HomePageInner() {
       {/* Floating sidebar panel — overlays the page rather than pushing/compressing it. */}
       <aside
         style={{
-          position: 'fixed', top: 0, left: 0, height: '100%', width: '240px',
+          position: 'fixed', top: 0, left: 0, height: '100%', width: '200px',
           background: '#181c25', borderRight: '1px solid rgba(201,168,76,0.12)',
-          display: 'flex', flexDirection: 'column', padding: '14px 12px 12px', gap: '2px',
+          display: 'flex', flexDirection: 'column', padding: '12px 10px 10px', gap: '1px',
           zIndex: 150, overflowY: 'auto', boxShadow: '4px 0 24px rgba(0,0,0,0.4)',
           transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
           transition: 'transform 0.22s ease',
@@ -403,8 +403,8 @@ function HomePageInner() {
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
           <a href="/" onClick={e => { e.preventDefault(); handleNavClick('dashboard'); }} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <img src="/logo.png" alt="EPM logo" style={{ height: '30px', width: 'auto', display: 'block', flexShrink: 0 }} />
-            <span style={{ fontFamily: "'Georgia', 'Playfair Display', serif", fontSize: '14px', fontWeight: 700, letterSpacing: '0.03em', whiteSpace: 'nowrap', userSelect: 'none' }}>
+            <img src="/logo.png" alt="EPM logo" style={{ height: '22px', width: 'auto', display: 'block', flexShrink: 0 }} />
+            <span style={{ fontFamily: "'Georgia', 'Playfair Display', serif", fontSize: '11px', fontWeight: 700, letterSpacing: '0.01em', whiteSpace: 'nowrap', userSelect: 'none' }}>
               <span style={{ color: '#ffffff' }}>Executive</span>
               <span style={{ color: '#e8c840' }}>Prime</span>
               <span style={{ color: '#ffffff' }}>Markets</span>
@@ -426,17 +426,17 @@ function HomePageInner() {
         {navLinks.map(link => (
           <a key={link.label} href="#" onClick={e => { e.preventDefault(); handleNavClick(link.href); }}
             title={link.label}
-            style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', justifyContent: 'flex-start', borderRadius: '8px', color: activePage === link.href ? '#c9a84c' : 'rgba(255,255,255,0.6)', fontSize: '13px', textDecoration: 'none', whiteSpace: 'nowrap', borderLeft: activePage === link.href ? '2px solid #c9a84c' : '2px solid transparent', background: activePage === link.href ? 'rgba(201,168,76,0.08)' : 'transparent', transition: 'all 0.15s' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px', justifyContent: 'flex-start', borderRadius: '7px', color: activePage === link.href ? '#c9a84c' : 'rgba(255,255,255,0.6)', fontSize: '12px', textDecoration: 'none', whiteSpace: 'nowrap', borderLeft: activePage === link.href ? '2px solid #c9a84c' : '2px solid transparent', background: activePage === link.href ? 'rgba(201,168,76,0.08)' : 'transparent', transition: 'all 0.15s' }}
             onMouseEnter={e => { handleNavHover(link.href); if (activePage !== link.href) { e.currentTarget.style.color = '#c9a84c'; e.currentTarget.style.background = 'rgba(201,168,76,0.08)'; e.currentTarget.style.borderLeftColor = '#c9a84c'; } }}
             onMouseLeave={e => { if (activePage !== link.href) { e.currentTarget.style.color = 'rgba(255,255,255,0.6)'; e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderLeftColor = 'transparent'; } }}
           >
-            <span style={{ fontSize: '16px', flexShrink: 0 }}>{link.icon}</span>
+            <span style={{ fontSize: '14px', flexShrink: 0 }}>{link.icon}</span>
             {link.label}
           </a>
         ))}
         <div style={{ flex: 1 }} />
         <SidebarAuth onClose={() => setSidebarOpen(false)} />
-        <div style={{ padding: '12px', fontSize: '10px', color: 'rgba(255,255,255,0.18)', letterSpacing: '1.5px', borderTop: '1px solid rgba(201,168,76,0.1)', marginTop: '8px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+        <div style={{ padding: '10px', fontSize: '9px', color: 'rgba(255,255,255,0.18)', letterSpacing: '1.2px', borderTop: '1px solid rgba(201,168,76,0.1)', marginTop: '6px', textAlign: 'center', whiteSpace: 'nowrap' }}>
           POWERED BY <span style={{ color: 'rgba(201,168,76,0.4)' }}>DERIV</span>
         </div>
       </aside>
