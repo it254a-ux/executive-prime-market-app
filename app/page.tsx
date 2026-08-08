@@ -11,7 +11,6 @@ const navLinks = [
   { label: 'Dashboard',         icon: '🏠', href: 'dashboard' },
   { label: 'Charts',            icon: '📊', href: 'charts' },
   { label: 'DTrader',           icon: '💹', href: 'dtrader' },
-  { label: 'Analysis Tool',     icon: '🔍', href: 'analysis' },
   { label: 'Bot Builder',       icon: '🤖', href: 'botbuilder' },
   { label: 'Free Bots by EPM',  icon: '🎁', href: 'freebots' },
   { label: 'EPM Analyser Tool', icon: '📡', href: 'epmanalyser' },
@@ -136,7 +135,6 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
   const cards = [
     { label: 'Charts',            icon: '📊', page: 'charts' },
     { label: 'DTrader',           icon: '💹', page: 'dtrader' },
-    { label: 'Analysis Tool',     icon: '🔍', page: 'analysis' },
     { label: 'Bot Builder',       icon: '🤖', page: 'botbuilder' },
     { label: 'Free Bots by EPM',  icon: '🎁', page: 'freebots' },
     { label: 'EPM Analyser Tool', icon: '📡', page: 'epmanalyser' },
