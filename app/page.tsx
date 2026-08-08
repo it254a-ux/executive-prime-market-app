@@ -9,7 +9,6 @@ import { FreeBotsPage } from '@/components/custom/free-bots-page';
 
 const navLinks = [
   { label: 'Dashboard',         icon: '🏠', href: 'dashboard' },
-  { label: 'Charts',            icon: '📊', href: 'charts' },
   { label: 'DTrader',           icon: '💹', href: 'dtrader' },
   { label: 'Bot Builder',       icon: '🤖', href: 'botbuilder' },
   { label: 'Free Bots by EPM',  icon: '🎁', href: 'freebots' },
@@ -133,7 +132,6 @@ function SidebarAuth({ onClose }: { onClose: () => void }) {
 
 function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
   const cards = [
-    { label: 'Charts',            icon: '📊', page: 'charts' },
     { label: 'DTrader',           icon: '💹', page: 'dtrader' },
     { label: 'Bot Builder',       icon: '🤖', page: 'botbuilder' },
     { label: 'Free Bots by EPM',  icon: '🎁', page: 'freebots' },
