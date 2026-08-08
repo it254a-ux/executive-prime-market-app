@@ -14,7 +14,6 @@ const navLinks = [
   { label: 'Bot Builder',       icon: '🤖', href: 'botbuilder' },
   { label: 'Free Bots by EPM',  icon: '🎁', href: 'freebots' },
   { label: 'EPM Analyser Tool', icon: '📡', href: 'epmanalyser' },
-  { label: 'Copy Trading',      icon: '🔗', href: 'copytrading' },
   { label: 'Trading Tutorials', icon: '🎓', href: 'tutorials' },
 ];
 
@@ -22,7 +21,6 @@ const iframeBases: Record<string, string> = {
   charts:      'https://charts-accumulators-app.vercel.app',
   dtrader:     'https://rise-fall-epm-dtrader.vercel.app',
   analysis:    'https://digits-epm-analysis.vercel.app',
-  copytrading: 'https://epm-copy-trading.vercel.app',
   botbuilder:  'https://epm-botbuilder-uo51.vercel.app',
   epmanalyser: 'https://digits-epm-analysis.vercel.app/epm-analyser',
 };
@@ -113,7 +111,6 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
     { label: 'Bot Builder',       icon: '🤖', page: 'botbuilder' },
     { label: 'Free Bots by EPM',  icon: '🎁', page: 'freebots' },
     { label: 'EPM Analyser Tool', icon: '📡', page: 'epmanalyser' },
-    { label: 'Copy Trading',      icon: '🔗', page: 'copytrading' },
     { label: 'Trading Tutorials', icon: '🎓', page: 'tutorials' },
   ];
   return (
