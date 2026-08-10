@@ -11,7 +11,7 @@ import { TradingTutorialsPage } from '@/components/custom/trading-tutorials-page
 const navLinks = [
   { label: 'Dashboard',         icon: '🏠', href: 'dashboard' },
   { label: 'DTrader',           icon: '💹', href: 'dtrader' },
-  { label: 'Smart Bot Trading Terminal',   icon: '🤖', href: 'botbuilder' },
+  { label: 'Smart Trading Terminal',   icon: '🤖', href: 'botbuilder' },
   { label: 'Free Bots by EPM',  icon: '🎁', href: 'freebots' },
   { label: 'EPM Analyser Tool', icon: '📡', href: 'epmanalyser' },
   { label: 'Trading Tutorials', icon: '🎓', href: 'tutorials' },
@@ -108,7 +108,7 @@ function SidebarAuth({ onClose }: { onClose: () => void }) {
 function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
   const cards = [
     { label: 'DTrader',           icon: '💹', page: 'dtrader' },
-    { label: 'Smart Bot Trading Terminal',   icon: '🤖', page: 'botbuilder' },
+    { label: 'Smart Trading Terminal',   icon: '🤖', page: 'botbuilder' },
     { label: 'Free Bots by EPM',  icon: '🎁', page: 'freebots' },
     { label: 'EPM Analyser Tool', icon: '📡', page: 'epmanalyser' },
     { label: 'Trading Tutorials', icon: '🎓', page: 'tutorials' },
