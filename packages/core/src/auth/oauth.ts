@@ -147,7 +147,29 @@ export function validateCallback(params: CallbackParams, redirectUri: string): s
 }
 
 /**
+ * Perform a single fetch to the token endpoint. Split out from
+ * exchangeCodeForTokens so it can be retried in isolation.
+ */
+async function postTokenRequest(body: URLSearchParams): Promise<Response> {
+  return fetch(`${getAuthBaseUrl()}/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  });
+}
+
+/**
  * Exchange authorization code for access and refresh tokens.
+ *
+ * The token-exchange request runs immediately after the redirect back from
+ * Deriv, which is exactly when a mobile connection is most likely to still
+ * be settling (reconnecting after backgrounding, DNS still resolving,
+ * etc.). If the fetch itself fails at the network level — never reaching
+ * the server at all — we retry once. We deliberately do NOT retry after a
+ * response is received (even an error response), because the authorization
+ * code is single-use: if the server already saw the first attempt,
+ * resending the same code would fail regardless and could mask what
+ * actually happened.
  */
 export async function exchangeCodeForTokens(params: TokenExchangeParams): Promise<AuthInfo> {
   const body = new URLSearchParams({
@@ -158,11 +180,21 @@ export async function exchangeCodeForTokens(params: TokenExchangeParams): Promis
     code_verifier: params.codeVerifier,
   });
 
-  const response = await fetch(`${getAuthBaseUrl()}/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-  });
+  let response: Response;
+  try {
+    response = await postTokenRequest(body);
+  } catch (networkErr) {
+    // The request never reached the server — safe to retry once.
+    try {
+      response = await postTokenRequest(body);
+    } catch (retryErr) {
+      throw new OAuthError(
+        `Token exchange failed: network error (after retry) — ${
+          retryErr instanceof Error ? retryErr.message : 'unknown error'
+        }`
+      );
+    }
+  }
 
   if (!response.ok) {
     const errorBody = await response.text();
