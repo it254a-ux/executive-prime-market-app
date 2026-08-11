@@ -6,7 +6,14 @@ const AUTH_INFO_KEY = 'auth_info';
 const DERIV_ACCOUNTS_KEY = 'deriv_accounts';
 const ACTIVE_LOGINID_KEY = 'active_loginid';
 const ACCOUNT_TYPE_KEY = 'account_type';
-const TOKEN_MAX_AGE_MS = 10 * 60 * 1000; // 10 minutes
+
+// Increased from 10 minutes to 30 minutes. The full redirect chain is
+// app -> Deriv -> Google -> Deriv -> app. A user completing 2FA, picking a
+// Google account, or on a slow mobile connection can easily exceed 10
+// minutes, which was silently invalidating valid login attempts and causing
+// intermittent "fails to log in" behaviour. 30 minutes gives enough headroom
+// for that full flow while still expiring stale attempts.
+const TOKEN_MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes
 
 // --- CSRF Token ---
 // Stored in localStorage (not sessionStorage) because the OAuth redirect chain
@@ -17,6 +24,7 @@ export function storeCSRFToken(token: string): void {
   const stored: StoredCSRFToken = { value: token, createdAt: Date.now() };
   localStorage.setItem(CSRF_TOKEN_KEY, JSON.stringify(stored));
 }
+
 export function getCSRFToken(): string | null {
   const raw = localStorage.getItem(CSRF_TOKEN_KEY);
   if (!raw) return null;
@@ -27,6 +35,7 @@ export function getCSRFToken(): string | null {
   }
   return stored.value;
 }
+
 export function clearCSRFToken(): void {
   localStorage.removeItem(CSRF_TOKEN_KEY);
 }
@@ -38,6 +47,7 @@ export function storeCodeVerifier(verifier: string): void {
   const stored: StoredCodeVerifier = { value: verifier, createdAt: Date.now() };
   localStorage.setItem(CODE_VERIFIER_KEY, JSON.stringify(stored));
 }
+
 export function getCodeVerifier(): string | null {
   const raw = localStorage.getItem(CODE_VERIFIER_KEY);
   if (!raw) return null;
@@ -48,6 +58,7 @@ export function getCodeVerifier(): string | null {
   }
   return stored.value;
 }
+
 export function clearCodeVerifier(): void {
   localStorage.removeItem(CODE_VERIFIER_KEY);
 }
@@ -56,15 +67,19 @@ export function clearCodeVerifier(): void {
 export function storeAuthInfo(authInfo: AuthInfo): void {
   localStorage.setItem(AUTH_INFO_KEY, JSON.stringify(authInfo));
 }
+
 export function getAuthInfo(): AuthInfo | null {
   const raw = localStorage.getItem(AUTH_INFO_KEY);
   if (!raw) return null;
   const authInfo: AuthInfo = JSON.parse(raw);
   if (authInfo.expires_at && Date.now() > authInfo.expires_at * 1000) {
-    return null; // Token expired
+    // Token expired - clear it so stale data isn't read again on next call.
+    clearAuthInfo();
+    return null;
   }
   return authInfo;
 }
+
 export function clearAuthInfo(): void {
   localStorage.removeItem(AUTH_INFO_KEY);
 }
@@ -73,11 +88,13 @@ export function clearAuthInfo(): void {
 export function storeDerivAccounts(accounts: DerivAccount[]): void {
   localStorage.setItem(DERIV_ACCOUNTS_KEY, JSON.stringify(accounts));
 }
+
 export function getDerivAccounts(): DerivAccount[] | null {
   const raw = localStorage.getItem(DERIV_ACCOUNTS_KEY);
   if (!raw) return null;
   return JSON.parse(raw);
 }
+
 export function clearDerivAccounts(): void {
   localStorage.removeItem(DERIV_ACCOUNTS_KEY);
 }
@@ -86,6 +103,7 @@ export function clearDerivAccounts(): void {
 export function setActiveLoginId(loginId: string): void {
   localStorage.setItem(ACTIVE_LOGINID_KEY, loginId);
 }
+
 export function getActiveLoginId(): string | null {
   return localStorage.getItem(ACTIVE_LOGINID_KEY);
 }
@@ -94,6 +112,7 @@ export function getActiveLoginId(): string | null {
 export function setAccountType(type: 'demo' | 'real'): void {
   localStorage.setItem(ACCOUNT_TYPE_KEY, type);
 }
+
 export function getAccountType(): string | null {
   return localStorage.getItem(ACCOUNT_TYPE_KEY);
 }
