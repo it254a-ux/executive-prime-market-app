@@ -9,6 +9,16 @@ interface PendingRequest {
   reject: (error: Error) => void;
 }
 
+// Max time to wait for an in-flight connection attempt (made by another
+// caller) before giving up and rejecting instead of polling forever.
+const CONNECT_WAIT_TIMEOUT_MS = 15000;
+
+// Once the fast exponential-backoff attempts are exhausted, keep retrying
+// at this fixed interval indefinitely instead of stopping permanently.
+// A live trading platform should never require a manual page reload just
+// because of a brief network drop (WiFi/cellular handoff, app backgrounded).
+const SUSTAINED_RETRY_INTERVAL_MS = 15000;
+
 /**
  * Lightweight WebSocket manager for the Deriv public WS API.
  * Handles connection, reconnection, request/response matching via req_id,
@@ -28,6 +38,13 @@ export class DerivWS {
   private pingInterval: ReturnType<typeof setInterval> | null = null;
   private url: string;
   private isConnecting = false;
+  // True once the fast backoff attempts have been exhausted at least once
+  // since the last successful connection. Used to switch to sustained retry
+  // and to notify listeners exactly once per outage (not on every retry).
+  private hasNotifiedExhausted = false;
+  // True once disconnect() has been called intentionally (logout / full
+  // reconnect / unmount) — stops any further reconnect attempts for good.
+  private isDisposed = false;
 
   constructor(url?: string) {
     this.url = url ?? getPublicWsUrl();
@@ -70,17 +87,29 @@ export class DerivWS {
     if (this.ws?.readyState === WebSocket.OPEN) {
       return Promise.resolve();
     }
+
     if (this.isConnecting) {
-      return new Promise((resolve) => {
+      // Wait for the in-flight attempt, but never poll forever: if it
+      // doesn't succeed within CONNECT_WAIT_TIMEOUT_MS (e.g. the underlying
+      // socket errored out and went to CLOSED instead of OPEN), reject so
+      // the caller can react instead of hanging indefinitely.
+      return new Promise((resolve, reject) => {
+        const startedAt = Date.now();
         const check = setInterval(() => {
           if (this.ws?.readyState === WebSocket.OPEN) {
             clearInterval(check);
             resolve();
+            return;
+          }
+          if (!this.isConnecting || Date.now() - startedAt > CONNECT_WAIT_TIMEOUT_MS) {
+            clearInterval(check);
+            reject(new Error('WebSocket connection attempt timed out'));
           }
         }, 100);
       });
     }
 
+    this.isDisposed = false;
     this.isConnecting = true;
 
     return new Promise((resolve, reject) => {
@@ -89,6 +118,7 @@ export class DerivWS {
       this.ws.onopen = () => {
         this.isConnecting = false;
         this.reconnectAttempts = 0;
+        this.hasNotifiedExhausted = false;
         this.startPing();
         this.notifyConnectionState(true);
         resolve();
@@ -109,7 +139,9 @@ export class DerivWS {
         this.stopPing();
         this.subscriptionHandlers.clear();
         this.notifyConnectionState(false);
-        this.attemptReconnect();
+        if (!this.isDisposed) {
+          this.attemptReconnect();
+        }
       };
     });
   }
@@ -186,12 +218,12 @@ export class DerivWS {
   }
 
   disconnect(): void {
+    this.isDisposed = true;
     this.stopPing();
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
-    this.reconnectAttempts = this.maxReconnectAttempts; // prevent reconnect
     if (this.ws) {
       this.ws.close();
       this.ws = null;
@@ -262,9 +294,27 @@ export class DerivWS {
     }
   }
 
+  /**
+   * Reconnect strategy: fast exponential backoff (2s, 4s, 8s, 16s, 30s) for
+   * the first maxReconnectAttempts tries, matching the original behaviour.
+   * After that, instead of giving up permanently (which previously left the
+   * app dead until a full page reload), keep retrying at a fixed interval.
+   * onReconnectExhausted still fires exactly once per outage so the UI can
+   * show a "reconnecting..." state, but the socket keeps trying to recover
+   * on its own — a brief network drop should never require the user to
+   * manually reload or re-log-in.
+   */
   private attemptReconnect(): void {
+    if (this.isDisposed) return;
+
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      for (const handler of this.reconnectExhaustedHandlers) handler();
+      if (!this.hasNotifiedExhausted) {
+        this.hasNotifiedExhausted = true;
+        for (const handler of this.reconnectExhaustedHandlers) handler();
+      }
+      this.reconnectTimeout = setTimeout(() => {
+        this.connect().catch(() => {});
+      }, SUSTAINED_RETRY_INTERVAL_MS);
       return;
     }
 
