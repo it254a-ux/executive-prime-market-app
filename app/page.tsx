@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTheme } from 'next-themes';
 import { Sun, Moon, Menu, X } from 'lucide-react';
-import { DerivWSProvider, useDerivWSContext, LiveBalance } from '@/components/custom/deriv-ws-provider';
+import { DerivWSProvider, useDerivWSContext, LiveBalanceMap } from '@/components/custom/deriv-ws-provider';
 import { HeroBackground } from '@/components/custom/hero-background';
 import { FreeBotsPage } from '@/components/custom/free-bots-page';
 import { TradingTutorialsPage } from '@/components/custom/trading-tutorials-page';
@@ -33,16 +33,17 @@ const THEME_UPDATE_MSG = 'epm-theme-update';
 
 function resolveBalance(
   account: { account_id: string; balance: number | string; currency: string },
-  liveBalance: LiveBalance | null
+  liveBalances: LiveBalanceMap
 ): { balance: number; currency: string } {
-  if (liveBalance && liveBalance.loginid === account.account_id) {
-    return { balance: liveBalance.balance, currency: liveBalance.currency };
+  const live = liveBalances[account.account_id];
+  if (live) {
+    return { balance: live.balance, currency: live.currency };
   }
   return { balance: Number(account.balance), currency: account.currency };
 }
 
 function SidebarAuth({ onClose }: { onClose: () => void }) {
-  const { auth, liveBalance } = useDerivWSContext();
+  const { auth, liveBalances } = useDerivWSContext();
   const { authState, activeAccount, accounts, activeAccountId, login, signUp, logout, switchAccount } = auth;
   const isAuthenticated = authState === 'authenticated';
   const isAuthenticating = authState === 'authenticating';
@@ -52,7 +53,7 @@ function SidebarAuth({ onClose }: { onClose: () => void }) {
     fontSize: '13px', fontWeight: 600, cursor: 'pointer', border: 'none', textAlign: 'center',
   };
   if (isAuthenticated && activeAccount) {
-    const { balance, currency } = resolveBalance(activeAccount, liveBalance);
+    const { balance, currency } = resolveBalance(activeAccount, liveBalances);
     return (
       <div style={{ borderTop: '1px solid rgba(201,168,76,0.15)', marginTop: '8px', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
         <button onClick={() => setSwitcherOpen(o => !o)}
@@ -69,7 +70,7 @@ function SidebarAuth({ onClose }: { onClose: () => void }) {
           <div style={{ background: '#13130f', border: '1px solid rgba(201,168,76,0.2)', borderRadius: '8px', overflow: 'hidden' }}>
             {accounts.map(acc => {
               const isActive = acc.account_id === activeAccountId;
-              const { balance: b, currency: c } = resolveBalance(acc, liveBalance);
+              const { balance: b, currency: c } = resolveBalance(acc, liveBalances);
               return (
                 <button key={acc.account_id}
                   onClick={async () => { setSwitcherOpen(false); if (!isActive) await switchAccount(acc.account_id); onClose(); }}
