@@ -44,7 +44,7 @@ function resolveBalance(
 
 function SidebarAuth({ onClose }: { onClose: () => void }) {
   const { auth, liveBalances } = useDerivWSContext();
-  const { authState, activeAccount, accounts, activeAccountId, login, signUp, logout, switchAccount } = auth;
+  const { authState, activeAccount, accounts, activeAccountId, login, signUp, logout, switchAccount, error } = auth;
   const isAuthenticated = authState === 'authenticated';
   const isAuthenticating = authState === 'authenticating';
   const [switcherOpen, setSwitcherOpen] = useState(false);
@@ -94,6 +94,11 @@ function SidebarAuth({ onClose }: { onClose: () => void }) {
   }
   return (
     <div style={{ borderTop: '1px solid rgba(201,168,76,0.15)', marginTop: '8px', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {error && (
+        <p style={{ margin: 0, fontSize: '11px', lineHeight: 1.4, color: '#e08787', background: 'rgba(224,135,135,0.08)', border: '1px solid rgba(224,135,135,0.25)', borderRadius: '6px', padding: '8px 10px' }}>
+          Sign-in failed: {error}. Please try again.
+        </p>
+      )}
       <button onClick={() => { login(); onClose(); }} disabled={isAuthenticating}
         style={{ ...btnBase, background: 'none', border: '1px solid rgba(201,168,76,0.5)', color: '#c9a84c', opacity: isAuthenticating ? 0.6 : 1 }}>
         {isAuthenticating ? 'Logging in…' : 'Log In'}
