@@ -96,6 +96,11 @@ async function getAuthConfigWithReferral(): Promise<AuthConfig> {
   return config;
 }
 
+// Small delay helper used for the completeAuth retry below.
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 export interface UseAuthReturn {
   authState: AuthState;
   accounts: DerivAccount[];
@@ -161,6 +166,24 @@ export function useAuth(): UseAuthReturn {
     [fetchOTPUrl]
   );
 
+  // Same as completeAuth, but retries once after a short delay before giving
+  // up. This only applies right after a fresh OAuth code exchange: the token
+  // exchange itself already succeeded at that point, so a transient failure
+  // in the follow-up fetchAccounts/OTP calls (common on mobile right after a
+  // redirect, while the network is still reconnecting) shouldn't discard a
+  // valid login and force the user to redo the whole OAuth flow.
+  const completeAuthWithRetry = useCallback(
+    async (authInfo: AuthInfo) => {
+      try {
+        await completeAuth(authInfo);
+      } catch (err) {
+        await delay(1200);
+        await completeAuth(authInfo);
+      }
+    },
+    [completeAuth]
+  );
+
   // Initialize: check for OAuth callback or existing session
   useEffect(() => {
     if (initRef.current) return;
@@ -175,7 +198,7 @@ export function useAuth(): UseAuthReturn {
         setAuthState('authenticating');
         try {
           const authInfo = await handleOAuthCallback(window.location.href, getAuthConfig());
-          await completeAuth(authInfo);
+          await completeAuthWithRetry(authInfo);
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Authentication failed');
           setAuthState('error');
@@ -195,7 +218,7 @@ export function useAuth(): UseAuthReturn {
               storedAuth.refresh_token,
               getAuthConfig().clientId
             );
-            await completeAuth(refreshed);
+            await completeAuthWithRetry(refreshed);
           } catch {
             // Refresh failed — fall back to unauthenticated (public WS)
             clearAllAuthData();
@@ -224,7 +247,7 @@ export function useAuth(): UseAuthReturn {
         } else {
           // Have auth info but no accounts — re-fetch
           try {
-            await completeAuth(storedAuth);
+            await completeAuthWithRetry(storedAuth);
           } catch {
             clearAllAuthData();
             setAuthState('unauthenticated');
@@ -234,7 +257,7 @@ export function useAuth(): UseAuthReturn {
     };
 
     init();
-  }, [completeAuth, fetchOTPUrl]);
+  }, [completeAuthWithRetry, fetchOTPUrl]);
 
   // Keep ref in sync so visibility handler always has the current account ID
   useEffect(() => {
