@@ -14,7 +14,7 @@ const navLinks = [
   { label: 'Smart Trading Terminal',   icon: '🤖', href: 'botbuilder' },
   { label: 'Free Bots by EPM',  icon: '🎁', href: 'freebots' },
   { label: 'EPM Analyser Tool', icon: '📡', href: 'epmanalyser' },
-  { label: 'Trading Tutorials', icon: '🎓', href: 'tutorials' },
+  { label: 'Trading Courses', icon: '🎓', href: 'tutorials' },
 ];
 
 const iframeBases: Record<string, string> = {
@@ -117,7 +117,7 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
     { label: 'Smart Trading Terminal',   icon: '🤖', page: 'botbuilder' },
     { label: 'Free Bots by EPM',  icon: '🎁', page: 'freebots' },
     { label: 'EPM Analyser Tool', icon: '📡', page: 'epmanalyser' },
-    { label: 'Trading Tutorials', icon: '🎓', page: 'tutorials' },
+    { label: 'Trading Courses', icon: '🎓', page: 'tutorials' },
   ];
   return (
     <div style={{
