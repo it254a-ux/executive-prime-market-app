@@ -396,22 +396,30 @@ function HomePageInner() {
           transition: 'transform 0.22s ease',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-          <a href="/" onClick={e => { e.preventDefault(); handleNavClick('dashboard'); }} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <img src="/logo.png" alt="EPM logo" style={{ height: '22px', width: 'auto', display: 'block', flexShrink: 0 }} />
-            <span style={{ fontFamily: "'Georgia', 'Playfair Display', serif", fontSize: '11px', fontWeight: 700, letterSpacing: '0.01em', whiteSpace: 'nowrap', userSelect: 'none' }}>
+        {/* Header: close button sits in its own absolutely-positioned top-right
+            corner, fully independent of the logo/wordmark below it, so long
+            wordmark text can never visually collide with it regardless of
+            sidebar width (this was the cause of the earlier overlap bug). */}
+        <div style={{ position: 'relative', marginBottom: '14px', paddingTop: '2px' }}>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Close menu"
+            style={{ position: 'absolute', top: '-4px', right: '-4px', background: 'none', border: 'none', cursor: 'pointer', padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgb(var(--foreground) / 0.6)', zIndex: 1 }}
+          >
+            <X size={20} strokeWidth={2} />
+          </button>
+          <a
+            href="/"
+            onClick={e => { e.preventDefault(); handleNavClick('dashboard'); }}
+            style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', paddingRight: '24px', paddingTop: '2px' }}
+          >
+            <img src="/logo.png" alt="EPM logo" style={{ height: '40px', width: 'auto', display: 'block', flexShrink: 0 }} />
+            <span style={{ fontFamily: "'Georgia', 'Playfair Display', serif", fontSize: '13px', fontWeight: 700, letterSpacing: '0.01em', whiteSpace: 'nowrap', userSelect: 'none', textAlign: 'center' }}>
               <span style={{ color: 'rgb(var(--foreground))' }}>Executive</span>
               <span style={{ color: '#e8c840' }}>Prime</span>
               <span style={{ color: 'rgb(var(--foreground))' }}>Markets</span>
             </span>
           </a>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            aria-label="Close menu"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgb(var(--foreground) / 0.6)', flexShrink: 0 }}
-          >
-            <X size={20} strokeWidth={2} />
-          </button>
         </div>
 
         {navLinks.map(link => (
@@ -426,6 +434,26 @@ function HomePageInner() {
           </a>
         ))}
         <div style={{ flex: 1 }} />
+
+        {/* Theme toggle — same control as the floating top-left button, mirrored
+            here inside the sidebar, directly above the balance/Log Out block. */}
+        {themeMounted && (
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            aria-label="Toggle theme"
+            style={{
+              display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
+              padding: '8px 10px', borderRadius: '7px',
+              border: '1px solid rgba(201,168,76,0.2)', background: 'rgba(201,168,76,0.05)',
+              color: 'rgb(var(--foreground) / 0.75)', fontSize: '12px', fontWeight: 600,
+              cursor: 'pointer', marginTop: '6px',
+            }}
+          >
+            {theme === 'dark' ? <Sun size={14} color="#c9a84c" strokeWidth={2} /> : <Moon size={14} color="#c9a84c" strokeWidth={2} />}
+            <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+          </button>
+        )}
+
         <SidebarAuth onClose={() => setSidebarOpen(false)} />
         <div style={{ padding: '10px', fontSize: '9px', color: 'rgb(var(--foreground) / 0.18)', letterSpacing: '1.2px', borderTop: '1px solid rgba(201,168,76,0.1)', marginTop: '6px', textAlign: 'center', whiteSpace: 'nowrap' }}>
           POWERED BY <span style={{ color: 'rgba(201,168,76,0.4)' }}>DERIV</span>
