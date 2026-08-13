@@ -25,8 +25,13 @@ const HERO_IMAGES = [
  * Hero background: "breathes" in on load (soft scale + fade, no onLoad
  * dependency, so it's identical every time regardless of cache), then
  * settles into a slow, continuous zoom in/out. The zoom uses
- * `alternate` direction so it reverses smoothly at each end instead of
+ * alternate direction so it reverses smoothly at each end instead of
  * snapping back to the start — no visible reset, ever.
+ *
+ * Overlay gradient is theme-aware: it uses the --background CSS
+ * variable (via rgb(var(--background) / alpha)) instead of a
+ * hardcoded dark-mode color, so it now tracks light/dark theme
+ * switches instead of always rendering the dark-mode tint.
  */
 export function HeroBackground() {
   const [image, setImage] = useState<string | null>(null);
@@ -47,7 +52,7 @@ export function HeroBackground() {
           position: 'absolute',
           inset: 0,
           background:
-            'linear-gradient(180deg, rgba(24,28,37,0.55) 0%, rgba(24,28,37,0.78) 55%, rgba(24,28,37,0.94) 100%)',
+            'linear-gradient(180deg, rgb(var(--background) / 0.55) 0%, rgb(var(--background) / 0.78) 55%, rgb(var(--background) / 0.94) 100%)',
         }}
       />
       <style jsx>{`
