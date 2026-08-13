@@ -6,7 +6,6 @@ import { Sun, Moon, Menu, X } from 'lucide-react';
 import { DerivWSProvider, useDerivWSContext, LiveBalanceMap } from '@/components/custom/deriv-ws-provider';
 import { HeroBackground } from '@/components/custom/hero-background';
 import { FreeBotsPage } from '@/components/custom/free-bots-page';
-import { TradingTutorialsPage } from '@/components/custom/trading-tutorials-page';
 
 const navLinks = [
   { label: 'Dashboard',         icon: '🏠', href: 'dashboard' },
@@ -23,6 +22,17 @@ const iframeBases: Record<string, string> = {
   analysis:    'https://digits-epm-analysis.vercel.app',
   botbuilder:  'https://epm-botbuilder-uo51.vercel.app',
   epmanalyser: 'https://digits-epm-analysis.vercel.app/epm-analyser',
+  tutorials:   'https://epm-botbuilder-uo51.vercel.app',
+};
+
+// Some embedded apps use a URL hash to pick an initial internal tab on load
+// (epm-botbuilder reads location.hash against ['dashboard','bot_builder',
+// 'chart','tutorial','ai_bot_builder']). This must always be appended AFTER
+// any query string we build below — a fragment can never precede a query
+// string in a valid URL, so `#hash?query` would silently break both the
+// auth params and the hash-based tab detection.
+const iframeHashes: Record<string, string> = {
+  tutorials: 'tutorial',
 };
 
 // Theme sync protocol used to keep every embedded iframe app's theme in
@@ -264,7 +274,8 @@ function HomePageInner() {
     preloadedPages.forEach(page => {
       const base = iframeBases[page]; if (!base) return;
       const key = `${page}::public`;
-      setLoadedCombos(prev => (prev[key] ? prev : { ...prev, [key]: base }));
+      const src = iframeHashes[page] ? `${base}#${iframeHashes[page]}` : base;
+      setLoadedCombos(prev => (prev[key] ? prev : { ...prev, [key]: src }));
     });
   }, [preloadedPages, authState]);
 
@@ -275,7 +286,8 @@ function HomePageInner() {
     setLoadedCombos(prev => {
       if (prev[key]) return prev;
       const params = new URLSearchParams({ token: accessToken, acct: activeAccountId });
-      return { ...prev, [key]: `${base}?${params.toString()}` };
+      const hashSuffix = iframeHashes[activePage] ? `#${iframeHashes[activePage]}` : '';
+      return { ...prev, [key]: `${base}?${params.toString()}${hashSuffix}` };
     });
   }, [activePage, authState, accessToken, activeAccountId]);
 
@@ -291,7 +303,8 @@ function HomePageInner() {
             const key = `${page}::${acc.account_id}`;
             if (!prev[key]) {
               const params = new URLSearchParams({ token: accessToken, acct: acc.account_id });
-              return { ...prev, [key]: `${base}?${params.toString()}` };
+              const hashSuffix = iframeHashes[page] ? `#${iframeHashes[page]}` : '';
+              return { ...prev, [key]: `${base}?${params.toString()}${hashSuffix}` };
             }
           }
         }
@@ -487,8 +500,7 @@ function HomePageInner() {
         })}
         {!hasIframeBase && activePage === 'dashboard' && <DashboardPage onNavigate={handleNavClick} />}
         {!hasIframeBase && activePage === 'freebots'   && <FreeBotsPage />}
-        {!hasIframeBase && activePage === 'tutorials'  && <TradingTutorialsPage />}
-        {!hasIframeBase && activePage !== 'dashboard' && activePage !== 'freebots' && activePage !== 'tutorials' && (
+        {!hasIframeBase && activePage !== 'dashboard' && activePage !== 'freebots' && (
           <ComingSoonPage label={navLinks.find(l => l.href === activePage)?.label || activePage} />
         )}
       </div>
