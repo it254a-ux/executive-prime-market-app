@@ -61,26 +61,26 @@ export function FreeBotsPage() {
   return (
     <div className="page-fade-in" style={{
       flex: 1, position: 'relative', overflowX: 'hidden',
-      background: '#181c25', width: '100%',
+      background: 'rgb(var(--background))', width: '100%',
     }}>
       <HeroBackground />
 
       <div style={{
         position: 'relative', zIndex: 1,
         display: 'flex', flexDirection: 'column',
-        alignItems: 'center', color: '#fff', gap: '24px',
+        alignItems: 'center', color: 'rgb(var(--foreground))', gap: '24px',
         padding: '40px 24px', overflowY: 'auto', width: '100%',
         boxSizing: 'border-box',
       }}>
         <div style={{ textAlign: 'center', maxWidth: '640px' }}>
           <h1 style={{ color: '#c9a84c', fontSize: '28px', margin: 0 }}>Free Bots by EPM</h1>
-          <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', marginTop: '10px' }}>
+          <p style={{ color: 'rgb(var(--foreground) / 0.6)', fontSize: '14px', marginTop: '10px' }}>
             Ready-made strategies. Click Import to download, then drag the file onto the Bot Builder tab to load it.
           </p>
         </div>
 
         {loading && (
-          <p style={{ color: 'rgba(255,255,255,0.5)' }}>Loading bots…</p>
+          <p style={{ color: 'rgb(var(--foreground) / 0.5)' }}>Loading bots…</p>
         )}
 
         {error && (
@@ -88,7 +88,7 @@ export function FreeBotsPage() {
         )}
 
         {!loading && !error && bots.length === 0 && (
-          <p style={{ color: 'rgba(255,255,255,0.5)' }}>No bots available yet — check back soon.</p>
+          <p style={{ color: 'rgb(var(--foreground) / 0.5)' }}>No bots available yet — check back soon.</p>
         )}
 
         <div style={{
@@ -106,8 +106,8 @@ export function FreeBotsPage() {
                 backdropFilter: 'blur(6px)',
               }}
             >
-              <h3 style={{ color: '#fff', margin: 0, fontSize: '16px' }}>{bot.name}</h3>
-              <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '13px', margin: 0, flex: 1 }}>
+              <h3 style={{ color: 'rgb(var(--foreground))', margin: 0, fontSize: '16px' }}>{bot.name}</h3>
+              <p style={{ color: 'rgb(var(--foreground) / 0.6)', fontSize: '13px', margin: 0, flex: 1 }}>
                 {bot.description}
               </p>
               <div style={{ display: 'flex', gap: '8px', fontSize: '11px' }}>
