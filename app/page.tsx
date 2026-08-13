@@ -35,6 +35,32 @@ const iframeHashes: Record<string, string> = {
   tutorials: 'tutorial',
 };
 
+// The Trading Courses page ('tutorials') embeds the exact same
+// epm-botbuilder deployment as the Smart Trading Terminal ('botbuilder'),
+// just jumped straight to its Tutorials tab via the hash above. Without a
+// signal, epm-botbuilder can't tell the two embeds apart, so its tab bar
+// and Run panel would render on both. This flag is read by epm-botbuilder's
+// main.tsx (?embed=tutorial-only) to hide its own tab bar + Run panel only
+// for this embed — 'botbuilder' never gets this param, so it always renders
+// its full UI untouched.
+const TUTORIAL_ONLY_EMBED_PARAM = { embed: 'tutorial-only' } as const;
+
+// Builds the final iframe src for a given page: base URL, plus an optional
+// query string, plus the page's hash suffix (if any) — always in that order,
+// per the comment above. Centralizing this in one place means the
+// tutorial-only flag only has to be applied once, not duplicated across the
+// three separate places (public preload, active authenticated page,
+// background preload queue) that each build one of these URLs.
+function buildIframeSrc(page: string, base: string, extraParams?: Record<string, string>): string {
+  const hashSuffix = iframeHashes[page] ? `#${iframeHashes[page]}` : '';
+  const queryParams: Record<string, string> = { ...extraParams };
+  if (page === 'tutorials') {
+    Object.assign(queryParams, TUTORIAL_ONLY_EMBED_PARAM);
+  }
+  const queryString = Object.keys(queryParams).length > 0 ? `?${new URLSearchParams(queryParams).toString()}` : '';
+  return `${base}${queryString}${hashSuffix}`;
+}
+
 // Theme sync protocol used to keep every embedded iframe app's theme in
 // lockstep with this outer shell's theme (next-themes state does not cross
 // iframe/origin boundaries on its own).
@@ -274,7 +300,7 @@ function HomePageInner() {
     preloadedPages.forEach(page => {
       const base = iframeBases[page]; if (!base) return;
       const key = `${page}::public`;
-      const src = iframeHashes[page] ? `${base}#${iframeHashes[page]}` : base;
+      const src = buildIframeSrc(page, base);
       setLoadedCombos(prev => (prev[key] ? prev : { ...prev, [key]: src }));
     });
   }, [preloadedPages, authState]);
@@ -285,9 +311,8 @@ function HomePageInner() {
     const key = `${activePage}::${activeAccountId}`;
     setLoadedCombos(prev => {
       if (prev[key]) return prev;
-      const params = new URLSearchParams({ token: accessToken, acct: activeAccountId });
-      const hashSuffix = iframeHashes[activePage] ? `#${iframeHashes[activePage]}` : '';
-      return { ...prev, [key]: `${base}?${params.toString()}${hashSuffix}` };
+      const src = buildIframeSrc(activePage, base, { token: accessToken, acct: activeAccountId });
+      return { ...prev, [key]: src };
     });
   }, [activePage, authState, accessToken, activeAccountId]);
 
@@ -302,9 +327,8 @@ function HomePageInner() {
           for (const acc of accounts) {
             const key = `${page}::${acc.account_id}`;
             if (!prev[key]) {
-              const params = new URLSearchParams({ token: accessToken, acct: acc.account_id });
-              const hashSuffix = iframeHashes[page] ? `#${iframeHashes[page]}` : '';
-              return { ...prev, [key]: `${base}?${params.toString()}${hashSuffix}` };
+              const src = buildIframeSrc(page, base, { token: accessToken, acct: acc.account_id });
+              return { ...prev, [key]: src };
             }
           }
         }
