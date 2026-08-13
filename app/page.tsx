@@ -57,31 +57,31 @@ function SidebarAuth({ onClose }: { onClose: () => void }) {
     return (
       <div style={{ borderTop: '1px solid rgba(201,168,76,0.15)', marginTop: '8px', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
         <button onClick={() => setSwitcherOpen(o => !o)}
-          style={{ ...btnBase, background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.25)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          style={{ ...btnBase, background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.25)', color: 'rgb(var(--foreground))', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ padding: '2px 7px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, background: activeAccount.account_type === 'real' ? 'rgba(76,201,120,0.18)' : 'rgba(201,168,76,0.18)', color: activeAccount.account_type === 'real' ? '#4cc978' : '#c9a84c' }}>
               {activeAccount.account_type === 'real' ? 'REAL' : 'DEMO'}
             </span>
-            <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '12px' }}>{balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}</span>
+            <span style={{ color: 'rgb(var(--foreground) / 0.7)', fontSize: '12px' }}>{balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}</span>
           </span>
-          <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', transition: 'transform 0.2s', transform: switcherOpen ? 'rotate(180deg)' : 'none' }}>▾</span>
+          <span style={{ fontSize: '10px', color: 'rgb(var(--foreground) / 0.4)', transition: 'transform 0.2s', transform: switcherOpen ? 'rotate(180deg)' : 'none' }}>▾</span>
         </button>
         {switcherOpen && (
-          <div style={{ background: '#13130f', border: '1px solid rgba(201,168,76,0.2)', borderRadius: '8px', overflow: 'hidden' }}>
+          <div style={{ background: 'rgb(var(--popover))', border: '1px solid rgba(201,168,76,0.2)', borderRadius: '8px', overflow: 'hidden' }}>
             {accounts.map(acc => {
               const isActive = acc.account_id === activeAccountId;
               const { balance: b, currency: c } = resolveBalance(acc, liveBalances);
               return (
                 <button key={acc.account_id}
                   onClick={async () => { setSwitcherOpen(false); if (!isActive) await switchAccount(acc.account_id); onClose(); }}
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '10px 12px', background: isActive ? 'rgba(201,168,76,0.08)' : 'none', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.05)', color: '#fff', fontSize: '12px', cursor: 'pointer', textAlign: 'left' }}>
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '10px 12px', background: isActive ? 'rgba(201,168,76,0.08)' : 'none', border: 'none', borderBottom: '1px solid rgb(var(--foreground) / 0.05)', color: 'rgb(var(--foreground))', fontSize: '12px', cursor: 'pointer', textAlign: 'left' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span style={{ padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 700, background: acc.account_type === 'real' ? 'rgba(76,201,120,0.18)' : 'rgba(201,168,76,0.18)', color: acc.account_type === 'real' ? '#4cc978' : '#c9a84c' }}>
                       {acc.account_type === 'real' ? 'REAL' : 'DEMO'}
                     </span>
                     {acc.account_id}
                   </span>
-                  <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px' }}>{b.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {c}</span>
+                  <span style={{ color: 'rgb(var(--foreground) / 0.5)', fontSize: '11px' }}>{b.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {c}</span>
                 </button>
               );
             })}
@@ -125,8 +125,8 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      color: '#fff',
-      background: '#181c25',
+      color: 'rgb(var(--foreground))',
+      background: 'rgb(var(--background))',
       position: 'relative',
       overflowX: 'hidden',
       paddingTop: 'clamp(32px, 8vh, 80px)',
@@ -137,11 +137,11 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
     }}>
       <HeroBackground />
       <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', width: '100%', maxWidth: '800px' }}>
-        <h1 style={{ fontFamily: "'Georgia', 'Playfair Display', serif", fontWeight: 700, color: '#fff', margin: 0, textAlign: 'center', letterSpacing: '0.04em', fontSize: 'clamp(26px, 6vw, 44px)' }}>
+        <h1 style={{ fontFamily: "'Georgia', 'Playfair Display', serif", fontWeight: 700, color: 'rgb(var(--foreground))', margin: 0, textAlign: 'center', letterSpacing: '0.04em', fontSize: 'clamp(26px, 6vw, 44px)' }}>
           Executive<span style={{ color: '#e8c840' }}>Prime</span>Markets
         </h1>
         <span style={{ display: 'block', width: '64px', height: '2px', background: 'linear-gradient(90deg, #c9a84c, #e8c840)', borderRadius: '2px' }} />
-        <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 'clamp(13px, 3vw, 16px)', textAlign: 'center', maxWidth: '520px', margin: 0, lineHeight: 1.6 }}>
+        <p style={{ color: 'rgb(var(--foreground) / 0.75)', fontSize: 'clamp(13px, 3vw, 16px)', textAlign: 'center', maxWidth: '520px', margin: 0, lineHeight: 1.6 }}>
           Professional Trading Tools, Premium Bots, Market Intelligence &amp; Financial Growth.
         </p>
         <div style={{
@@ -176,10 +176,10 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
 
 function ComingSoonPage({ label }: { label: string }) {
   return (
-    <div style={{ width: '100%', minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff', gap: '16px', background: '#181c25', padding: '40px 20px', boxSizing: 'border-box' }}>
+    <div style={{ width: '100%', minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'rgb(var(--foreground))', gap: '16px', background: 'rgb(var(--background))', padding: '40px 20px', boxSizing: 'border-box' }}>
       <div style={{ fontSize: '48px' }}>🚧</div>
       <h2 style={{ color: '#c9a84c', margin: 0, textAlign: 'center' }}>{label}</h2>
-      <p style={{ color: 'rgba(255,255,255,0.4)', margin: 0, textAlign: 'center' }}>Coming soon — check back shortly.</p>
+      <p style={{ color: 'rgb(var(--foreground) / 0.4)', margin: 0, textAlign: 'center' }}>Coming soon — check back shortly.</p>
     </div>
   );
 }
@@ -344,7 +344,7 @@ function HomePageInner() {
   const hasIframeBase = !!iframeBases[activePage];
 
   return (
-    <main style={{ margin: 0, padding: 0, width: '100vw', height: '100dvh', background: '#181c25', fontFamily: 'Inter, sans-serif', overflow: 'hidden', position: 'relative' }}>
+    <main style={{ margin: 0, padding: 0, width: '100vw', height: '100dvh', background: 'rgb(var(--background))', fontFamily: 'Inter, sans-serif', overflow: 'hidden', position: 'relative' }}>
 
       {/* Small fixed menu button — always visible, does not affect layout.
           Opens the floating sidebar panel. */}
@@ -353,7 +353,7 @@ function HomePageInner() {
           style={{
             position: 'fixed', top: '14px', left: '14px', zIndex: 150,
             display: 'flex', alignItems: 'stretch',
-            background: '#181c25', border: '1px solid rgba(201,168,76,0.25)',
+            background: 'rgb(var(--background))', border: '1px solid rgba(201,168,76,0.25)',
             borderRadius: '10px', overflow: 'hidden',
             boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
           }}
@@ -389,7 +389,7 @@ function HomePageInner() {
       <aside
         style={{
           position: 'fixed', top: 0, left: 0, height: '100%', width: '200px',
-          background: '#181c25', borderRight: '1px solid rgba(201,168,76,0.12)',
+          background: 'rgb(var(--background))', borderRight: '1px solid rgba(201,168,76,0.12)',
           display: 'flex', flexDirection: 'column', padding: '12px 10px 10px', gap: '1px',
           zIndex: 150, overflowY: 'auto', boxShadow: '4px 0 24px rgba(0,0,0,0.4)',
           transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
@@ -400,15 +400,15 @@ function HomePageInner() {
           <a href="/" onClick={e => { e.preventDefault(); handleNavClick('dashboard'); }} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <img src="/logo.png" alt="EPM logo" style={{ height: '22px', width: 'auto', display: 'block', flexShrink: 0 }} />
             <span style={{ fontFamily: "'Georgia', 'Playfair Display', serif", fontSize: '11px', fontWeight: 700, letterSpacing: '0.01em', whiteSpace: 'nowrap', userSelect: 'none' }}>
-              <span style={{ color: '#ffffff' }}>Executive</span>
+              <span style={{ color: 'rgb(var(--foreground))' }}>Executive</span>
               <span style={{ color: '#e8c840' }}>Prime</span>
-              <span style={{ color: '#ffffff' }}>Markets</span>
+              <span style={{ color: 'rgb(var(--foreground))' }}>Markets</span>
             </span>
           </a>
           <button
             onClick={() => setSidebarOpen(false)}
             aria-label="Close menu"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.6)', flexShrink: 0 }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgb(var(--foreground) / 0.6)', flexShrink: 0 }}
           >
             <X size={20} strokeWidth={2} />
           </button>
@@ -417,9 +417,9 @@ function HomePageInner() {
         {navLinks.map(link => (
           <a key={link.label} href="#" onClick={e => { e.preventDefault(); handleNavClick(link.href); }}
             title={link.label}
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px', justifyContent: 'flex-start', borderRadius: '7px', color: activePage === link.href ? '#c9a84c' : 'rgba(255,255,255,0.6)', fontSize: '12px', textDecoration: 'none', whiteSpace: 'nowrap', borderLeft: activePage === link.href ? '2px solid #c9a84c' : '2px solid transparent', background: activePage === link.href ? 'rgba(201,168,76,0.08)' : 'transparent', transition: 'all 0.15s' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px', justifyContent: 'flex-start', borderRadius: '7px', color: activePage === link.href ? '#c9a84c' : 'rgb(var(--foreground) / 0.6)', fontSize: '12px', textDecoration: 'none', whiteSpace: 'nowrap', borderLeft: activePage === link.href ? '2px solid #c9a84c' : '2px solid transparent', background: activePage === link.href ? 'rgba(201,168,76,0.08)' : 'transparent', transition: 'all 0.15s' }}
             onMouseEnter={e => { handleNavHover(link.href); if (activePage !== link.href) { e.currentTarget.style.color = '#c9a84c'; e.currentTarget.style.background = 'rgba(201,168,76,0.08)'; e.currentTarget.style.borderLeftColor = '#c9a84c'; } }}
-            onMouseLeave={e => { if (activePage !== link.href) { e.currentTarget.style.color = 'rgba(255,255,255,0.6)'; e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderLeftColor = 'transparent'; } }}
+            onMouseLeave={e => { if (activePage !== link.href) { e.currentTarget.style.color = 'rgb(var(--foreground) / 0.6)'; e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderLeftColor = 'transparent'; } }}
           >
             <span style={{ fontSize: '14px', flexShrink: 0 }}>{link.icon}</span>
             {link.label}
@@ -427,7 +427,7 @@ function HomePageInner() {
         ))}
         <div style={{ flex: 1 }} />
         <SidebarAuth onClose={() => setSidebarOpen(false)} />
-        <div style={{ padding: '10px', fontSize: '9px', color: 'rgba(255,255,255,0.18)', letterSpacing: '1.2px', borderTop: '1px solid rgba(201,168,76,0.1)', marginTop: '6px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+        <div style={{ padding: '10px', fontSize: '9px', color: 'rgb(var(--foreground) / 0.18)', letterSpacing: '1.2px', borderTop: '1px solid rgba(201,168,76,0.1)', marginTop: '6px', textAlign: 'center', whiteSpace: 'nowrap' }}>
           POWERED BY <span style={{ color: 'rgba(201,168,76,0.4)' }}>DERIV</span>
         </div>
       </aside>
