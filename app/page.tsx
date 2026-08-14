@@ -381,7 +381,7 @@ function HomePageInner() {
   const hasIframeBase = !!iframeBases[activePage];
 
   return (
-    <main style={{ margin: 0, padding: 0, width: '100vw', height: '100dvh', background: 'rgb(var(--background))', fontFamily: 'Inter, sans-serif', overflow: 'hidden', position: 'relative' }}>
+    <main style={{ margin: 0, padding: 0, width: '100vw', height: '100dvh', background: 'rgb(var(--background))', fontFamily: 'Inter, sans-serif', overflow: 'visible', position: 'relative' }}>
 
       {/* Small fixed menu button — always visible, does not affect layout.
           Opens the floating sidebar panel. */}
