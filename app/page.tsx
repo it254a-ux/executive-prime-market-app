@@ -9,6 +9,7 @@ import { FreeBotsPage } from '@/components/custom/free-bots-page';
 
 const navLinks = [
   { label: 'Dashboard',         icon: '🏠', href: 'dashboard' },
+  { label: 'My Accounts',       icon: '💼', href: 'accounts' },
   { label: 'DTrader',           icon: '💹', href: 'dtrader' },
   { label: 'Smart Trading Terminal',   icon: '🤖', href: 'botbuilder' },
   { label: 'Free Bots by EPM',  icon: '🎁', href: 'freebots' },
@@ -149,6 +150,7 @@ function SidebarAuth({ onClose }: { onClose: () => void }) {
 
 function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
   const cards = [
+    { label: 'My Accounts',       icon: '💼', page: 'accounts' },
     { label: 'DTrader',           icon: '💹', page: 'dtrader' },
     { label: 'Smart Trading Terminal',   icon: '🤖', page: 'botbuilder' },
     { label: 'Free Bots by EPM',  icon: '🎁', page: 'freebots' },
@@ -205,6 +207,129 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Dedicated "My Accounts" page — lists every account under the current
+ * login (both demo and real), each with its live balance from
+ * `liveBalances` (falling back to the auth snapshot only until the first
+ * live update arrives). Unlike the sidebar switcher, this is not limited
+ * to the single active account: every account the user has is shown at
+ * once, grouped by Real / Demo.
+ */
+function AccountsPage() {
+  const { auth, liveBalances, isConnected } = useDerivWSContext();
+  const { authState, accounts, activeAccountId, login } = auth;
+
+  if (authState !== 'authenticated') {
+    return (
+      <div style={{ width: '100%', minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'rgb(var(--foreground))', gap: '16px', background: 'rgb(var(--background))', padding: '40px 20px', boxSizing: 'border-box' }}>
+        <div style={{ fontSize: '48px' }}>💼</div>
+        <h2 style={{ color: '#c9a84c', margin: 0, textAlign: 'center' }}>My Accounts</h2>
+        <p style={{ color: 'rgb(var(--foreground) / 0.4)', margin: 0, textAlign: 'center', maxWidth: '360px' }}>
+          Log in to view every demo and real account under your login, with live balances.
+        </p>
+        <button
+          onClick={() => login()}
+          style={{ padding: '10px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', border: '1px solid rgba(201,168,76,0.5)', background: 'none', color: '#c9a84c' }}
+        >
+          Log In
+        </button>
+      </div>
+    );
+  }
+
+  const realAccounts = accounts.filter(acc => acc.account_type === 'real');
+  const demoAccounts = accounts.filter(acc => acc.account_type === 'demo');
+
+  const renderGroup = (label: string, list: typeof accounts, kind: 'real' | 'demo') => {
+    if (list.length === 0) return null;
+    return (
+      <div style={{ width: '100%', marginBottom: '24px' }}>
+        <h3 style={{ color: 'rgb(var(--foreground) / 0.55)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 10px 4px' }}>
+          {label}
+        </h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {list.map(acc => {
+            const { balance, currency } = resolveBalance(acc, liveBalances);
+            const isActive = acc.account_id === activeAccountId;
+            const isLive = Boolean(liveBalances[acc.account_id]);
+            return (
+              <div
+                key={acc.account_id}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '14px 16px', borderRadius: '10px',
+                  background: isActive ? 'rgba(201,168,76,0.1)' : 'rgba(201,168,76,0.04)',
+                  border: isActive ? '1px solid rgba(201,168,76,0.4)' : '1px solid rgba(201,168,76,0.15)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                  <span style={{
+                    padding: '3px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, flexShrink: 0,
+                    background: kind === 'real' ? 'rgba(76,201,120,0.18)' : 'rgba(201,168,76,0.18)',
+                    color: kind === 'real' ? '#4cc978' : '#c9a84c',
+                  }}>
+                    {kind === 'real' ? 'REAL' : 'DEMO'}
+                  </span>
+                  <span style={{ color: 'rgb(var(--foreground) / 0.85)', fontSize: '13px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {acc.account_id}
+                  </span>
+                  {isActive && (
+                    <span style={{ color: 'rgb(var(--foreground) / 0.35)', fontSize: '11px', flexShrink: 0 }}>
+                      (active)
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                  <span
+                    title={isLive ? 'Live' : 'Awaiting live update'}
+                    style={{
+                      width: '6px', height: '6px', borderRadius: '50%',
+                      background: isLive ? '#4cc978' : 'rgb(var(--foreground) / 0.25)',
+                      boxShadow: isLive ? '0 0 6px #4cc978' : 'none',
+                    }}
+                  />
+                  <span style={{ color: 'rgb(var(--foreground))', fontSize: '15px', fontWeight: 700 }}>
+                    {balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{
+      width: '100%', minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center',
+      color: 'rgb(var(--foreground))', background: 'rgb(var(--background))',
+      padding: 'clamp(24px, 6vh, 60px) 20px 60px', boxSizing: 'border-box',
+    }}>
+      <div style={{ width: '100%', maxWidth: '560px' }}>
+        <h1 style={{ fontFamily: "'Georgia', 'Playfair Display', serif", fontWeight: 700, color: 'rgb(var(--foreground))', margin: '0 0 4px', fontSize: 'clamp(22px, 5vw, 30px)' }}>
+          My <span style={{ color: '#e8c840' }}>Accounts</span>
+        </h1>
+        <p style={{ color: 'rgb(var(--foreground) / 0.5)', fontSize: '13px', margin: '0 0 4px' }}>
+          Every demo and real account under your login, updating live.
+        </p>
+        <p style={{ color: 'rgb(var(--foreground) / 0.35)', fontSize: '11px', margin: '0 0 28px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: isConnected ? '#4cc978' : '#e08787' }} />
+          {isConnected ? 'Connected — balances stream in real time' : 'Reconnecting…'}
+        </p>
+        {realAccounts.length === 0 && demoAccounts.length === 0 ? (
+          <p style={{ color: 'rgb(var(--foreground) / 0.4)', fontSize: '13px' }}>No accounts found for this login.</p>
+        ) : (
+          <>
+            {renderGroup('Real Accounts', realAccounts, 'real')}
+            {renderGroup('Demo Accounts', demoAccounts, 'demo')}
+          </>
+        )}
       </div>
     </div>
   );
@@ -523,8 +648,9 @@ function HomePageInner() {
           );
         })}
         {!hasIframeBase && activePage === 'dashboard' && <DashboardPage onNavigate={handleNavClick} />}
+        {!hasIframeBase && activePage === 'accounts'   && <AccountsPage />}
         {!hasIframeBase && activePage === 'freebots'   && <FreeBotsPage />}
-        {!hasIframeBase && activePage !== 'dashboard' && activePage !== 'freebots' && (
+        {!hasIframeBase && activePage !== 'dashboard' && activePage !== 'accounts' && activePage !== 'freebots' && (
           <ComingSoonPage label={navLinks.find(l => l.href === activePage)?.label || activePage} />
         )}
       </div>
