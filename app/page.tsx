@@ -96,12 +96,12 @@ function SidebarAuth({ onClose }: { onClose: () => void }) {
         <button onClick={() => setSwitcherOpen(o => !o)}
           style={{ ...btnBase, background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.25)', color: 'rgb(var(--foreground))', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ padding: '2px 7px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, background: activeAccount.account_type === 'real' ? 'rgba(76,201,120,0.18)' : 'rgba(201,168,76,0.18)', color: activeAccount.account_type === 'real' ? '#4cc978' : '#c9a84c' }}>
+            <span style={{ padding: '2px 7px', borderRadius: '4px', fontSize: '5px', fontWeight: 700, background: activeAccount.account_type === 'real' ? 'rgba(76,201,120,0.18)' : 'rgba(201,168,76,0.18)', color: activeAccount.account_type === 'real' ? '#4cc978' : '#c9a84c' }}>
               {activeAccount.account_type === 'real' ? 'REAL' : 'DEMO'}
             </span>
-            <span style={{ color: 'rgb(var(--foreground) / 0.7)', fontSize: '12px' }}>{balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}</span>
+            <span style={{ color: 'rgb(var(--foreground) / 0.7)', fontSize: '6px' }}>{balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}</span>
           </span>
-          <span style={{ fontSize: '10px', color: 'rgb(var(--foreground) / 0.4)', transition: 'transform 0.2s', transform: switcherOpen ? 'rotate(180deg)' : 'none' }}>▾</span>
+          <span style={{ fontSize: '5px', color: 'rgb(var(--foreground) / 0.4)', transition: 'transform 0.2s', transform: switcherOpen ? 'rotate(180deg)' : 'none' }}>▾</span>
         </button>
         {switcherOpen && (
           <div style={{ background: 'rgb(var(--popover))', border: '1px solid rgba(201,168,76,0.2)', borderRadius: '8px', overflow: 'hidden' }}>
@@ -111,14 +111,14 @@ function SidebarAuth({ onClose }: { onClose: () => void }) {
               return (
                 <button key={acc.account_id}
                   onClick={async () => { setSwitcherOpen(false); if (!isActive) await switchAccount(acc.account_id); onClose(); }}
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '10px 12px', background: isActive ? 'rgba(201,168,76,0.08)' : 'none', border: 'none', borderBottom: '1px solid rgb(var(--foreground) / 0.05)', color: 'rgb(var(--foreground))', fontSize: '12px', cursor: 'pointer', textAlign: 'left' }}>
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '10px 12px', background: isActive ? 'rgba(201,168,76,0.08)' : 'none', border: 'none', borderBottom: '1px solid rgb(var(--foreground) / 0.05)', color: 'rgb(var(--foreground))', fontSize: '6px', cursor: 'pointer', textAlign: 'left' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 700, background: acc.account_type === 'real' ? 'rgba(76,201,120,0.18)' : 'rgba(201,168,76,0.18)', color: acc.account_type === 'real' ? '#4cc978' : '#c9a84c' }}>
+                    <span style={{ padding: '2px 6px', borderRadius: '4px', fontSize: '4.5px', fontWeight: 700, background: acc.account_type === 'real' ? 'rgba(76,201,120,0.18)' : 'rgba(201,168,76,0.18)', color: acc.account_type === 'real' ? '#4cc978' : '#c9a84c' }}>
                       {acc.account_type === 'real' ? 'REAL' : 'DEMO'}
                     </span>
                     {acc.account_id}
                   </span>
-                  <span style={{ color: 'rgb(var(--foreground) / 0.5)', fontSize: '11px' }}>{b.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {c}</span>
+                  <span style={{ color: 'rgb(var(--foreground) / 0.5)', fontSize: '5.5px' }}>{b.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {c}</span>
                 </button>
               );
             })}
@@ -269,17 +269,17 @@ function AccountsPage() {
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
                   <span style={{
-                    padding: '3px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, flexShrink: 0,
+                    padding: '3px 8px', borderRadius: '4px', fontSize: '5px', fontWeight: 700, flexShrink: 0,
                     background: kind === 'real' ? 'rgba(76,201,120,0.18)' : 'rgba(201,168,76,0.18)',
                     color: kind === 'real' ? '#4cc978' : '#c9a84c',
                   }}>
                     {kind === 'real' ? 'REAL' : 'DEMO'}
                   </span>
-                  <span style={{ color: 'rgb(var(--foreground) / 0.85)', fontSize: '13px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <span style={{ color: 'rgb(var(--foreground) / 0.85)', fontSize: '6.5px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {acc.account_id}
                   </span>
                   {isActive && (
-                    <span style={{ color: 'rgb(var(--foreground) / 0.35)', fontSize: '11px', flexShrink: 0 }}>
+                    <span style={{ color: 'rgb(var(--foreground) / 0.35)', fontSize: '5.5px', flexShrink: 0 }}>
                       (active)
                     </span>
                   )}
@@ -293,7 +293,7 @@ function AccountsPage() {
                       boxShadow: isLive ? '0 0 6px #4cc978' : 'none',
                     }}
                   />
-                  <span style={{ color: 'rgb(var(--foreground))', fontSize: '15px', fontWeight: 700 }}>
+                  <span style={{ color: 'rgb(var(--foreground))', fontSize: '7.5px', fontWeight: 700 }}>
                     {balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
                   </span>
                 </div>
