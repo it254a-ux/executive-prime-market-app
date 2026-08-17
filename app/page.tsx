@@ -79,27 +79,98 @@ function resolveBalance(
   return { balance: Number(account.balance), currency: account.currency };
 }
 
+/** Global keyframes for the live-balance pulse dot and flash-on-change effect.
+ *  Injected once via a <style> tag (see HomePageInner) so no separate CSS
+ *  file needs to be touched. */
+const LIVE_STYLE_ID = 'epm-live-balance-styles';
+function LiveStyles() {
+  return (
+    <style id={LIVE_STYLE_ID}>{`
+      @keyframes epm-live-pulse {
+        0% { box-shadow: 0 0 0 0 rgba(76,201,120,0.55); }
+        70% { box-shadow: 0 0 0 6px rgba(76,201,120,0); }
+        100% { box-shadow: 0 0 0 0 rgba(76,201,120,0); }
+      }
+    `}</style>
+  );
+}
+
+/** Small pulsing dot + "LIVE" label shown next to a balance that is backed
+ *  by the real-time `balance`/`account:'all'` subscription (as opposed to
+ *  the one-time login snapshot). */
+function LiveBadge({ live, size = 5 }: { live: boolean; size?: number }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+      <span
+        style={{
+          width: `${size}px`, height: `${size}px`, borderRadius: '50%',
+          background: live ? '#4cc978' : 'rgb(var(--foreground) / 0.25)',
+          animation: live ? 'epm-live-pulse 1.8s infinite' : 'none',
+        }}
+      />
+      {live && (
+        <span style={{ fontSize: '5px', fontWeight: 700, letterSpacing: '0.06em', color: '#4cc978' }}>LIVE</span>
+      )}
+    </span>
+  );
+}
+
+/** Tracks the previous value and returns 'up' | 'down' for a short window
+ *  right after the value changes, then clears back to null. Used to flash
+ *  a balance green (profit/credit) or red (loss/debit) the instant a live
+ *  update moves it — so a win/loss is visible immediately, not just implied
+ *  by the number itself changing quietly. */
+function useBalanceFlash(value: number): 'up' | 'down' | null {
+  const prevRef = useRef<number | null>(null);
+  const [flash, setFlash] = useState<'up' | 'down' | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (prevRef.current !== null && value !== prevRef.current) {
+      setFlash(value > prevRef.current ? 'up' : 'down');
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => setFlash(null), 1300);
+    }
+    prevRef.current = value;
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, [value]);
+
+  return flash;
+}
+
 function SidebarAuth({ onClose }: { onClose: () => void }) {
   const { auth, liveBalances } = useDerivWSContext();
   const { authState, activeAccount, accounts, activeAccountId, login, signUp, logout, switchAccount, error } = auth;
   const isAuthenticated = authState === 'authenticated';
   const isAuthenticating = authState === 'authenticating';
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const activeResolved = isAuthenticated && activeAccount ? resolveBalance(activeAccount, liveBalances) : null;
+  const activeFlash = useBalanceFlash(activeResolved?.balance ?? 0);
+  const activeIsLive = isAuthenticated && activeAccount ? Boolean(liveBalances[activeAccount.account_id]) : false;
   const btnBase: React.CSSProperties = {
     width: '100%', padding: '10px 14px', borderRadius: '8px',
     fontSize: '13px', fontWeight: 600, cursor: 'pointer', border: 'none', textAlign: 'center',
   };
   if (isAuthenticated && activeAccount) {
-    const { balance, currency } = resolveBalance(activeAccount, liveBalances);
+
+    const { balance, currency } = activeResolved!;
     return (
       <div style={{ borderTop: '1px solid rgba(201,168,76,0.15)', marginTop: '8px', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
         <button onClick={() => setSwitcherOpen(o => !o)}
-          style={{ ...btnBase, background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.25)', color: 'rgb(var(--foreground))', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          style={{
+            ...btnBase,
+            background: activeFlash === 'up' ? 'rgba(76,201,120,0.22)' : activeFlash === 'down' ? 'rgba(224,135,135,0.22)' : 'rgba(201,168,76,0.06)',
+            border: '1px solid rgba(201,168,76,0.25)', color: 'rgb(var(--foreground))', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            transition: 'background 0.6s ease',
+          }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ padding: '2px 7px', borderRadius: '4px', fontSize: '5px', fontWeight: 700, background: activeAccount.account_type === 'real' ? 'rgba(76,201,120,0.18)' : 'rgba(201,168,76,0.18)', color: activeAccount.account_type === 'real' ? '#4cc978' : '#c9a84c' }}>
               {activeAccount.account_type === 'real' ? 'REAL' : 'DEMO'}
             </span>
             <span style={{ color: 'rgb(var(--foreground) / 0.7)', fontSize: '6px' }}>{balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}</span>
+            <LiveBadge live={activeIsLive} />
           </span>
           <span style={{ fontSize: '5px', color: 'rgb(var(--foreground) / 0.4)', transition: 'transform 0.2s', transform: switcherOpen ? 'rotate(180deg)' : 'none' }}>▾</span>
         </button>
@@ -220,6 +291,68 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
  * to the single active account: every account the user has is shown at
  * once, grouped by Real / Demo.
  */
+interface AccountLike {
+  account_id: string;
+  balance: number | string;
+  currency: string;
+  account_type: string;
+}
+
+/** One row in the My Accounts list. Pulled into its own component (rather
+ *  than inline in a .map) because it calls useBalanceFlash, and hooks can't
+ *  run inside an array callback. */
+function AccountRow({
+  acc,
+  kind,
+  isActive,
+  liveBalances,
+}: {
+  acc: AccountLike;
+  kind: 'real' | 'demo';
+  isActive: boolean;
+  liveBalances: LiveBalanceMap;
+}) {
+  const { balance, currency } = resolveBalance(acc, liveBalances);
+  const isLive = Boolean(liveBalances[acc.account_id]);
+  const flash = useBalanceFlash(balance);
+
+  return (
+    <div
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '14px 16px', borderRadius: '10px',
+        background: flash === 'up' ? 'rgba(76,201,120,0.18)' : flash === 'down' ? 'rgba(224,135,135,0.18)' : (isActive ? 'rgba(201,168,76,0.1)' : 'rgba(201,168,76,0.04)'),
+        border: isActive ? '1px solid rgba(201,168,76,0.4)' : '1px solid rgba(201,168,76,0.15)',
+        transition: 'background 0.6s ease',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+        <span style={{
+          padding: '3px 8px', borderRadius: '4px', fontSize: '5px', fontWeight: 700, flexShrink: 0,
+          background: kind === 'real' ? 'rgba(76,201,120,0.18)' : 'rgba(201,168,76,0.18)',
+          color: kind === 'real' ? '#4cc978' : '#c9a84c',
+        }}>
+          {kind === 'real' ? 'REAL' : 'DEMO'}
+        </span>
+        <span style={{ color: 'rgb(var(--foreground) / 0.85)', fontSize: '6.5px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {acc.account_id}
+        </span>
+        {isActive && (
+          <span style={{ color: 'rgb(var(--foreground) / 0.35)', fontSize: '5.5px', flexShrink: 0 }}>
+            (active)
+          </span>
+        )}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+        <LiveBadge live={isLive} />
+        <span style={{ color: 'rgb(var(--foreground))', fontSize: '7.5px', fontWeight: 700 }}>
+          {balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function AccountsPage() {
   const { auth, liveBalances, isConnected } = useDerivWSContext();
   const { authState, accounts, activeAccountId, login } = auth;
@@ -254,50 +387,15 @@ function AccountsPage() {
         </h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {list.map(acc => {
-            const { balance, currency } = resolveBalance(acc, liveBalances);
             const isActive = acc.account_id === activeAccountId;
-            const isLive = Boolean(liveBalances[acc.account_id]);
             return (
-              <div
+              <AccountRow
                 key={acc.account_id}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '14px 16px', borderRadius: '10px',
-                  background: isActive ? 'rgba(201,168,76,0.1)' : 'rgba(201,168,76,0.04)',
-                  border: isActive ? '1px solid rgba(201,168,76,0.4)' : '1px solid rgba(201,168,76,0.15)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                  <span style={{
-                    padding: '3px 8px', borderRadius: '4px', fontSize: '5px', fontWeight: 700, flexShrink: 0,
-                    background: kind === 'real' ? 'rgba(76,201,120,0.18)' : 'rgba(201,168,76,0.18)',
-                    color: kind === 'real' ? '#4cc978' : '#c9a84c',
-                  }}>
-                    {kind === 'real' ? 'REAL' : 'DEMO'}
-                  </span>
-                  <span style={{ color: 'rgb(var(--foreground) / 0.85)', fontSize: '6.5px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {acc.account_id}
-                  </span>
-                  {isActive && (
-                    <span style={{ color: 'rgb(var(--foreground) / 0.35)', fontSize: '5.5px', flexShrink: 0 }}>
-                      (active)
-                    </span>
-                  )}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                  <span
-                    title={isLive ? 'Live' : 'Awaiting live update'}
-                    style={{
-                      width: '6px', height: '6px', borderRadius: '50%',
-                      background: isLive ? '#4cc978' : 'rgb(var(--foreground) / 0.25)',
-                      boxShadow: isLive ? '0 0 6px #4cc978' : 'none',
-                    }}
-                  />
-                  <span style={{ color: 'rgb(var(--foreground))', fontSize: '7.5px', fontWeight: 700 }}>
-                    {balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
-                  </span>
-                </div>
-              </div>
+                acc={acc}
+                kind={kind}
+                isActive={isActive}
+                liveBalances={liveBalances}
+              />
             );
           })}
         </div>
@@ -319,7 +417,7 @@ function AccountsPage() {
           Every demo and real account under your login, updating live.
         </p>
         <p style={{ color: 'rgb(var(--foreground) / 0.35)', fontSize: '11px', margin: '0 0 28px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: isConnected ? '#4cc978' : '#e08787' }} />
+          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: isConnected ? '#4cc978' : '#e08787', animation: isConnected ? 'epm-live-pulse 1.8s infinite' : 'none' }} />
           {isConnected ? 'Connected — balances stream in real time' : 'Reconnecting…'}
         </p>
         {realAccounts.length === 0 && demoAccounts.length === 0 ? (
@@ -507,6 +605,7 @@ function HomePageInner() {
 
   return (
     <main style={{ margin: 0, padding: 0, width: '100vw', height: '100dvh', background: 'rgb(var(--background))', fontFamily: 'Inter, sans-serif', overflow: 'visible', position: 'relative' }}>
+      <LiveStyles />
 
       {/* Small fixed menu button — always visible, does not affect layout.
           Opens the floating sidebar panel. */}
