@@ -140,37 +140,39 @@ function useBalanceFlash(value: number): 'up' | 'down' | null {
   return flash;
 }
 
+/**
+ * Sidebar account switcher. Shows Real/Demo + account ID only — no balance.
+ * Balance is intentionally NOT shown here: the embedded trading apps
+ * (DTrader etc.) already display the authoritative, correct live balance,
+ * and keeping a second independent balance source in the sidebar risked
+ * drifting out of sync with what a trade actually did to the account.
+ * The dedicated "My Accounts" page still shows live balances — this is
+ * scoped to the sidebar switcher only.
+ */
 function SidebarAuth({ onClose }: { onClose: () => void }) {
-  const { auth, liveBalances } = useDerivWSContext();
+  const { auth } = useDerivWSContext();
   const { authState, activeAccount, accounts, activeAccountId, login, signUp, logout, switchAccount, error } = auth;
   const isAuthenticated = authState === 'authenticated';
   const isAuthenticating = authState === 'authenticating';
   const [switcherOpen, setSwitcherOpen] = useState(false);
-  const activeResolved = isAuthenticated && activeAccount ? resolveBalance(activeAccount, liveBalances) : null;
-  const activeFlash = useBalanceFlash(activeResolved?.balance ?? 0);
-  const activeIsLive = isAuthenticated && activeAccount ? Boolean(liveBalances[activeAccount.account_id]) : false;
   const btnBase: React.CSSProperties = {
     width: '100%', padding: '10px 14px', borderRadius: '8px',
     fontSize: '13px', fontWeight: 600, cursor: 'pointer', border: 'none', textAlign: 'center',
   };
   if (isAuthenticated && activeAccount) {
-
-    const { balance, currency } = activeResolved!;
     return (
       <div style={{ borderTop: '1px solid rgba(201,168,76,0.15)', marginTop: '8px', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
         <button onClick={() => setSwitcherOpen(o => !o)}
           style={{
             ...btnBase,
-            background: activeFlash === 'up' ? 'rgba(76,201,120,0.22)' : activeFlash === 'down' ? 'rgba(224,135,135,0.22)' : 'rgba(201,168,76,0.06)',
+            background: 'rgba(201,168,76,0.06)',
             border: '1px solid rgba(201,168,76,0.25)', color: 'rgb(var(--foreground))', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            transition: 'background 0.6s ease',
           }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ padding: '2px 7px', borderRadius: '4px', fontSize: '5px', fontWeight: 700, background: activeAccount.account_type === 'real' ? 'rgba(76,201,120,0.18)' : 'rgba(201,168,76,0.18)', color: activeAccount.account_type === 'real' ? '#4cc978' : '#c9a84c' }}>
               {activeAccount.account_type === 'real' ? 'REAL' : 'DEMO'}
             </span>
-            <span style={{ color: 'rgb(var(--foreground) / 0.7)', fontSize: '6px' }}>{balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}</span>
-            <LiveBadge live={activeIsLive} />
+            <span style={{ color: 'rgb(var(--foreground) / 0.7)', fontSize: '6px' }}>{activeAccount.account_id}</span>
           </span>
           <span style={{ fontSize: '5px', color: 'rgb(var(--foreground) / 0.4)', transition: 'transform 0.2s', transform: switcherOpen ? 'rotate(180deg)' : 'none' }}>▾</span>
         </button>
@@ -178,7 +180,6 @@ function SidebarAuth({ onClose }: { onClose: () => void }) {
           <div style={{ background: 'rgb(var(--popover))', border: '1px solid rgba(201,168,76,0.2)', borderRadius: '8px', overflow: 'hidden' }}>
             {accounts.map(acc => {
               const isActive = acc.account_id === activeAccountId;
-              const { balance: b, currency: c } = resolveBalance(acc, liveBalances);
               return (
                 <button key={acc.account_id}
                   onClick={async () => { setSwitcherOpen(false); if (!isActive) await switchAccount(acc.account_id); onClose(); }}
@@ -189,7 +190,6 @@ function SidebarAuth({ onClose }: { onClose: () => void }) {
                     </span>
                     {acc.account_id}
                   </span>
-                  <span style={{ color: 'rgb(var(--foreground) / 0.5)', fontSize: '5.5px' }}>{b.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {c}</span>
                 </button>
               );
             })}
