@@ -611,7 +611,7 @@ function HomePageInner() {
       {!sidebarOpen && (
         <div
           style={{
-            position: 'fixed', top: '14px', left: '14px', zIndex: 150,
+            position: 'fixed', top: '10px', left: '14px', zIndex: 150,
             display: 'flex', alignItems: 'stretch',
             background: 'rgb(var(--background))', border: '1px solid rgba(201,168,76,0.25)',
             borderRadius: '10px', overflow: 'hidden',
@@ -621,7 +621,7 @@ function HomePageInner() {
           <button
             onClick={() => setSidebarOpen(true)}
             aria-label="Open menu"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', width: '32px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             <Menu size={15} color="#c9a84c" strokeWidth={2} />
           </button>
@@ -629,7 +629,7 @@ function HomePageInner() {
             <button
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               aria-label="Toggle theme"
-              style={{ background: 'none', border: 'none', borderLeft: '1px solid rgba(201,168,76,0.25)', cursor: 'pointer', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              style={{ background: 'none', border: 'none', borderLeft: '1px solid rgba(201,168,76,0.25)', cursor: 'pointer', width: '32px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             >
               {theme === 'dark' ? <Sun size={14} color="#c9a84c" strokeWidth={2} /> : <Moon size={14} color="#c9a84c" strokeWidth={2} />}
             </button>
