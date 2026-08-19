@@ -38,7 +38,6 @@ export {
   parseLandingParams,
   resolveReferralViaProxy,
 } from './auth';
-
 // Types
 export type {
   AuthConfig,
@@ -61,17 +60,16 @@ export type {
   BuyResponse,
   BuyResult,
   ProposalParams,
+  MT5Account,
 } from './types';
-
 // Config
 export { getAuthBaseUrl, getApiBaseUrl, getPublicWsUrl } from './config';
-
 // Utils
 export { pickDefaultSymbol } from './utils/pick-default-symbol';
-
 // WebSocket
 export { DerivWS } from './ws';
-
+// MT5
+export { fetchMT5Accounts } from './mt5';
 // React Hooks
 export {
   useDerivWS,
