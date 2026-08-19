@@ -611,7 +611,7 @@ function HomePageInner() {
       {!sidebarOpen && (
         <div
           style={{
-            position: 'fixed', top: '10px', left: '14px', zIndex: 150,
+            position: 'fixed', top: '8px', left: '14px', zIndex: 150,
             display: 'flex', alignItems: 'stretch',
             background: 'rgb(var(--background))', border: '1px solid rgba(201,168,76,0.25)',
             borderRadius: '10px', overflow: 'hidden',
