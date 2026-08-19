@@ -9,7 +9,6 @@ export type {
   StoredCSRFToken,
   StoredCodeVerifier,
 } from './auth';
-
 export type {
   ActiveSymbol,
   Tick,
@@ -23,3 +22,4 @@ export type {
   BuyResult,
   ProposalParams,
 } from './trading';
+export type { MT5Account } from './mt5';
