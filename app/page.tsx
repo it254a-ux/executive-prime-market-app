@@ -145,6 +145,7 @@ function useBalanceFlash(value: number): 'up' | 'down' | null {
  * (DTrader etc.) already display the authoritative, correct live balance,
  * and keeping a second independent balance source in the sidebar risked
  * drifting out of sync with what a trade actually did to the account.
+ * The dedicated "My Accounts" page still shows live balances — this is
  * scoped to the sidebar switcher only.
  */
 function SidebarAuth({ onClose }: { onClose: () => void }) {
@@ -219,6 +220,7 @@ function SidebarAuth({ onClose }: { onClose: () => void }) {
 
 function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
   const cards = [
+    { label: 'My Accounts',       icon: '💼', page: 'accounts' },
     { label: 'DTrader',           icon: '💹', page: 'dtrader' },
     { label: 'Smart Trading Terminal',   icon: '🤖', page: 'botbuilder' },
     { label: 'Free Bots by EPM',  icon: '🎁', page: 'freebots' },
@@ -280,6 +282,14 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
   );
 }
 
+/**
+ * Dedicated "My Accounts" page — lists every account under the current
+ * login (both demo and real), each with its live balance from
+ * `liveBalances` (falling back to the auth snapshot only until the first
+ * live update arrives). Unlike the sidebar switcher, this is not limited
+ * to the single active account: every account the user has is shown at
+ * once, grouped by Real / Demo.
+ */
 interface AccountLike {
   account_id: string;
   balance: number | string;
