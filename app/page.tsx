@@ -6,9 +6,12 @@ import { Sun, Moon, Menu, X } from 'lucide-react';
 import { DerivWSProvider, useDerivWSContext, LiveBalanceMap } from '@/components/custom/deriv-ws-provider';
 import { HeroBackground } from '@/components/custom/hero-background';
 import { FreeBotsPage } from '@/components/custom/free-bots-page';
+import type { MT5Account } from '@deriv/core';
 
 const navLinks = [
   { label: 'Dashboard',         icon: '🏠', href: 'dashboard' },
+  { label: 'My Accounts',       icon: '💼', href: 'accounts' },
+  { label: 'MT5',               icon: '📊', href: 'mt5' },
   { label: 'DTrader',           icon: '💹', href: 'dtrader' },
   { label: 'Smart Trading Terminal',   icon: '🤖', href: 'botbuilder' },
   { label: 'Free Bots by EPM',  icon: '🎁', href: 'freebots' },
@@ -23,6 +26,10 @@ const iframeBases: Record<string, string> = {
   botbuilder:  'https://epm-botbuilder-uo51.vercel.app',
   epmanalyser: 'https://digits-epm-analysis.vercel.app/epm-analyser',
   tutorials:   'https://epm-botbuilder-uo51.vercel.app',
+  // 'mt5' is intentionally NOT listed here yet — it has no iframe base
+  // until the separate MT5 trading repo's URL is provided. Until then,
+  // 'mt5' renders the in-app MT5Page (account list) below instead of an
+  // iframe, the same way 'accounts' and 'freebots' do.
 };
 
 // Some embedded apps use a URL hash to pick an initial internal tab on load
@@ -145,6 +152,10 @@ function useBalanceFlash(value: number): 'up' | 'down' | null {
  * (DTrader etc.) already display the authoritative, correct live balance,
  * and keeping a second independent balance source in the sidebar risked
  * drifting out of sync with what a trade actually did to the account.
+ * The dedicated "My Accounts" page still shows live balances — this is
+ * scoped to the sidebar switcher only. This switches between Options
+ * accounts only — MT5 accounts have their own dedicated page (MT5Page)
+ * since they're a structurally separate account type.
  */
 function SidebarAuth({ onClose }: { onClose: () => void }) {
   const { auth } = useDerivWSContext();
@@ -218,6 +229,8 @@ function SidebarAuth({ onClose }: { onClose: () => void }) {
 
 function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
   const cards = [
+    { label: 'My Accounts',       icon: '💼', page: 'accounts' },
+    { label: 'MT5',               icon: '📊', page: 'mt5' },
     { label: 'DTrader',           icon: '💹', page: 'dtrader' },
     { label: 'Smart Trading Terminal',   icon: '🤖', page: 'botbuilder' },
     { label: 'Free Bots by EPM',  icon: '🎁', page: 'freebots' },
@@ -279,6 +292,14 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
   );
 }
 
+/**
+ * Dedicated "My Accounts" page — lists every account under the current
+ * login (both demo and real), each with its live balance from
+ * `liveBalances` (falling back to the auth snapshot only until the first
+ * live update arrives). Unlike the sidebar switcher, this is not limited
+ * to the single active account: every account the user has is shown at
+ * once, grouped by Real / Demo.
+ */
 interface AccountLike {
   account_id: string;
   balance: number | string;
@@ -286,6 +307,9 @@ interface AccountLike {
   account_type: string;
 }
 
+/** One row in the My Accounts list. Pulled into its own component (rather
+ *  than inline in a .map) because it calls useBalanceFlash, and hooks can't
+ *  run inside an array callback. */
 function AccountRow({
   acc,
   kind,
@@ -411,6 +435,118 @@ function AccountsPage() {
           <>
             {renderGroup('Real Accounts', realAccounts, 'real')}
             {renderGroup('Demo Accounts', demoAccounts, 'demo')}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Dedicated "MT5" page — lists every MT5 account under the current login,
+ * fetched via fetchMT5Accounts (Deriv's legacy WS API; see use-auth.ts).
+ * This is intentionally a separate page from "My Accounts": MT5 accounts
+ * are a structurally different account type from the Options/Multipliers
+ * accounts shown there (different API, different login ID format, no
+ * live-balance subscription available). There is no iframe for actual MT5
+ * trading yet — Deriv does not support trade execution via any API, so
+ * trading itself will always happen in a separate embedded app or the
+ * real MetaTrader 5 terminal, once that URL is wired into iframeBases.
+ */
+function MT5Row({ acc }: { acc: MT5Account }) {
+  return (
+    <div
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '14px 16px', borderRadius: '10px',
+        background: 'rgba(201,168,76,0.04)',
+        border: '1px solid rgba(201,168,76,0.15)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+        <span style={{
+          padding: '3px 8px', borderRadius: '4px', fontSize: '5px', fontWeight: 700, flexShrink: 0,
+          background: acc.account_type === 'real' ? 'rgba(76,201,120,0.18)' : 'rgba(201,168,76,0.18)',
+          color: acc.account_type === 'real' ? '#4cc978' : '#c9a84c',
+        }}>
+          {acc.account_type === 'real' ? 'REAL' : 'DEMO'}
+        </span>
+        <span style={{ color: 'rgb(var(--foreground) / 0.85)', fontSize: '6.5px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {acc.login}
+        </span>
+        <span style={{ color: 'rgb(var(--foreground) / 0.4)', fontSize: '5.5px', flexShrink: 0, textTransform: 'capitalize' }}>
+          {acc.market_type === 'financial' ? 'Financial' : 'Synthetic'}
+        </span>
+      </div>
+      <span style={{ color: 'rgb(var(--foreground))', fontSize: '7.5px', fontWeight: 700, flexShrink: 0 }}>
+        {acc.display_balance} {acc.currency}
+      </span>
+    </div>
+  );
+}
+
+function MT5Page() {
+  const { auth } = useDerivWSContext();
+  const { authState, mt5Accounts, mt5AccountsLoading, login } = auth;
+
+  if (authState !== 'authenticated') {
+    return (
+      <div style={{ width: '100%', minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'rgb(var(--foreground))', gap: '16px', background: 'rgb(var(--background))', padding: '40px 20px', boxSizing: 'border-box' }}>
+        <div style={{ fontSize: '48px' }}>📊</div>
+        <h2 style={{ color: '#c9a84c', margin: 0, textAlign: 'center' }}>MT5</h2>
+        <p style={{ color: 'rgb(var(--foreground) / 0.4)', margin: 0, textAlign: 'center', maxWidth: '360px' }}>
+          Log in to view your MT5 accounts.
+        </p>
+        <button
+          onClick={() => login()}
+          style={{ padding: '10px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', border: '1px solid rgba(201,168,76,0.5)', background: 'none', color: '#c9a84c' }}
+        >
+          Log In
+        </button>
+      </div>
+    );
+  }
+
+  const realAccounts = mt5Accounts.filter(acc => acc.account_type === 'real');
+  const demoAccounts = mt5Accounts.filter(acc => acc.account_type === 'demo');
+
+  const renderGroup = (label: string, list: MT5Account[]) => {
+    if (list.length === 0) return null;
+    return (
+      <div style={{ width: '100%', marginBottom: '24px' }}>
+        <h3 style={{ color: 'rgb(var(--foreground) / 0.55)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 10px 4px' }}>
+          {label}
+        </h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {list.map(acc => (
+            <MT5Row key={acc.login} acc={acc} />
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{
+      width: '100%', minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center',
+      color: 'rgb(var(--foreground))', background: 'rgb(var(--background))',
+      padding: 'clamp(24px, 6vh, 60px) 20px 60px', boxSizing: 'border-box',
+    }}>
+      <div style={{ width: '100%', maxWidth: '560px' }}>
+        <h1 style={{ fontFamily: "'Georgia', 'Playfair Display', serif", fontWeight: 700, color: 'rgb(var(--foreground))', margin: '0 0 4px', fontSize: 'clamp(22px, 5vw, 30px)' }}>
+          MT5 <span style={{ color: '#e8c840' }}>Accounts</span>
+        </h1>
+        <p style={{ color: 'rgb(var(--foreground) / 0.5)', fontSize: '13px', margin: '0 0 28px' }}>
+          Every MT5 account under your login.
+        </p>
+        {mt5AccountsLoading && mt5Accounts.length === 0 ? (
+          <p style={{ color: 'rgb(var(--foreground) / 0.4)', fontSize: '13px' }}>Loading MT5 accounts…</p>
+        ) : realAccounts.length === 0 && demoAccounts.length === 0 ? (
+          <p style={{ color: 'rgb(var(--foreground) / 0.4)', fontSize: '13px' }}>No MT5 accounts found for this login.</p>
+        ) : (
+          <>
+            {renderGroup('Real Accounts', realAccounts)}
+            {renderGroup('Demo Accounts', demoAccounts)}
           </>
         )}
       </div>
@@ -597,7 +733,7 @@ function HomePageInner() {
       {!sidebarOpen && (
         <div
           style={{
-            position: 'fixed', top: '8px', left: '14px', zIndex: 150,
+            position: 'fixed', top: '14px', left: '14px', zIndex: 150,
             display: 'flex', alignItems: 'stretch',
             background: 'rgb(var(--background))', border: '1px solid rgba(201,168,76,0.25)',
             borderRadius: '10px', overflow: 'hidden',
@@ -607,7 +743,7 @@ function HomePageInner() {
           <button
             onClick={() => setSidebarOpen(true)}
             aria-label="Open menu"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', width: '32px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             <Menu size={15} color="#c9a84c" strokeWidth={2} />
           </button>
@@ -615,7 +751,7 @@ function HomePageInner() {
             <button
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               aria-label="Toggle theme"
-              style={{ background: 'none', border: 'none', borderLeft: '1px solid rgba(201,168,76,0.25)', cursor: 'pointer', width: '32px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              style={{ background: 'none', border: 'none', borderLeft: '1px solid rgba(201,168,76,0.25)', cursor: 'pointer', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             >
               {theme === 'dark' ? <Sun size={14} color="#c9a84c" strokeWidth={2} /> : <Moon size={14} color="#c9a84c" strokeWidth={2} />}
             </button>
@@ -733,8 +869,9 @@ function HomePageInner() {
         })}
         {!hasIframeBase && activePage === 'dashboard' && <DashboardPage onNavigate={handleNavClick} />}
         {!hasIframeBase && activePage === 'accounts'   && <AccountsPage />}
+        {!hasIframeBase && activePage === 'mt5'        && <MT5Page />}
         {!hasIframeBase && activePage === 'freebots'   && <FreeBotsPage />}
-        {!hasIframeBase && activePage !== 'dashboard' && activePage !== 'accounts' && activePage !== 'freebots' && (
+        {!hasIframeBase && activePage !== 'dashboard' && activePage !== 'accounts' && activePage !== 'mt5' && activePage !== 'freebots' && (
           <ComingSoonPage label={navLinks.find(l => l.href === activePage)?.label || activePage} />
         )}
       </div>
