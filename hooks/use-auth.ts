@@ -7,6 +7,7 @@ import {
   handleOAuthCallback,
   refreshAccessToken,
   fetchAccounts,
+  fetchMT5Accounts,
   getWebSocketOTP,
   logout as coreLogout,
   getAuthInfo,
@@ -19,7 +20,7 @@ import {
   parseLandingParams,
   resolveReferralViaProxy,
 } from '@deriv/core';
-import type { AuthInfo, DerivAccount, AuthState, AuthConfig } from '@deriv/core';
+import type { AuthInfo, DerivAccount, MT5Account, AuthState, AuthConfig } from '@deriv/core';
 
 function getAuthConfig(): AuthConfig {
   const config: AuthConfig = {
@@ -108,6 +109,17 @@ export interface UseAuthReturn {
   activeAccountId: string | null;
   accessToken: string | null;
   wsUrl: string | undefined;
+  /**
+   * MT5 accounts under the current login, fetched via Deriv's legacy
+   * WebSocket API (see fetchMT5Accounts in @deriv/core). Fetched
+   * automatically once Options auth completes. Empty until that fetch
+   * resolves, or if it fails — a failure here never affects `authState`
+   * or any other part of the session, since it's fetched on a completely
+   * separate, temporary connection.
+   */
+  mt5Accounts: MT5Account[];
+  /** True while the MT5 accounts fetch is in flight. */
+  mt5AccountsLoading: boolean;
   login: () => Promise<void>;
   signUp: () => Promise<void>;
   logout: () => void;
@@ -132,6 +144,8 @@ export function useAuth(): UseAuthReturn {
     return getAuthInfo()?.access_token ?? null;
   });
   const [wsUrl, setWsUrl] = useState<string | undefined>(undefined);
+  const [mt5Accounts, setMt5Accounts] = useState<MT5Account[]>([]);
+  const [mt5AccountsLoading, setMt5AccountsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const initRef = useRef(false);
   const activeAccountIdRef = useRef<string | null>(null);
@@ -144,6 +158,23 @@ export function useAuth(): UseAuthReturn {
     },
     []
   );
+
+  // Fetch MT5 accounts for the current login. Deliberately isolated: this
+  // runs on its own temporary connection (see fetchMT5Accounts), so any
+  // failure here (unsupported call, network issue) is caught and swallowed
+  // — it must never affect authState, accessToken, or the main Options
+  // session. Fire-and-forget from the callers below.
+  const loadMT5Accounts = useCallback(async (authInfo: AuthInfo) => {
+    setMt5AccountsLoading(true);
+    try {
+      const mt5 = await fetchMT5Accounts(authInfo, getAuthConfig().clientId);
+      setMt5Accounts(mt5);
+    } catch {
+      // Supplementary data only — leave mt5Accounts as-is on failure.
+    } finally {
+      setMt5AccountsLoading(false);
+    }
+  }, []);
 
   // Complete auth: fetch accounts → get OTP → set WS URL
   const completeAuth = useCallback(
@@ -162,8 +193,11 @@ export function useAuth(): UseAuthReturn {
       }
 
       setAuthState('authenticated');
+      // Fire-and-forget: MT5 accounts load in the background and populate
+      // whenever they're ready, without delaying the main auth flow above.
+      loadMT5Accounts(authInfo);
     },
-    [fetchOTPUrl]
+    [fetchOTPUrl, loadMT5Accounts]
   );
 
   // Same as completeAuth, but retries once after a short delay before giving
@@ -239,6 +273,7 @@ export function useAuth(): UseAuthReturn {
             const otpUrl = await fetchOTPUrl(loginId, storedAuth);
             setWsUrl(otpUrl);
             setAuthState('authenticated');
+            loadMT5Accounts(storedAuth);
           } catch {
             // OTP fetch failed — token may be invalid, clear and fallback
             clearAllAuthData();
@@ -257,7 +292,7 @@ export function useAuth(): UseAuthReturn {
     };
 
     init();
-  }, [completeAuthWithRetry, fetchOTPUrl]);
+  }, [completeAuthWithRetry, fetchOTPUrl, loadMT5Accounts]);
 
   // Keep ref in sync so visibility handler always has the current account ID
   useEffect(() => {
@@ -330,6 +365,7 @@ export function useAuth(): UseAuthReturn {
     setActiveAccountId(null);
     setAccessToken(null);
     setWsUrl(undefined);
+    setMt5Accounts([]);
     setAuthState('unauthenticated');
     setError(null);
   }, []);
@@ -366,6 +402,8 @@ export function useAuth(): UseAuthReturn {
     activeAccountId,
     accessToken,
     wsUrl,
+    mt5Accounts,
+    mt5AccountsLoading,
     login,
     signUp,
     logout,
