@@ -35,26 +35,6 @@ function formatBalance(balance: string): string {
 }
 
 /**
- * Both account IDs (real + demo) belonging to the one login that should
- * always display as "Real account" regardless of which of its two
- * accounts is actually active — matched by account_id since this app's
- * account data does not expose an email field. The balance value shown
- * is always the true value for whichever account is active; only the
- * label is forced. Same IDs / same behavior as rise-fall-epm-dtrader.
- */
-const FORCED_REAL_LABEL_ACCOUNT_IDS = ['ROT92086906', 'DOT93462536'];
-
-/** Returns the account_type to DISPLAY (may differ from the account's real
- * account_type for the forced-real IDs above) — never changes the actual
- * balance, currency, or which account is active. */
-function getDisplayAccountType(account: DerivAccount): 'demo' | 'real' {
-  if (FORCED_REAL_LABEL_ACCOUNT_IDS.includes(account.account_id)) {
-    return 'real';
-  }
-  return account.account_type;
-}
-
-/**
  * Centered site wordmark. If appName is exactly three words (e.g.
  * "Executive Prime Markets"), the middle word renders gold to match the
  * reference design. Any other name renders as a single gold serif wordmark.
@@ -192,7 +172,7 @@ export function Header({
             <PopoverTrigger asChild>
               <button className="flex items-center gap-2 rounded-lg border border-border px-3 hover:bg-muted/50 transition-colors">
                 <div className="text-left">
-                  <AccountLabel type={getDisplayAccountType(activeAccount)} />
+                  <AccountLabel type={activeAccount.account_type} />
                   <p className="text-base font-bold text-foreground">
                     {formatBalance(activeAccount.balance)} {activeAccount.currency}
                   </p>
@@ -227,7 +207,7 @@ export function Header({
                         : 'hover:bg-muted/50'
                     )}
                   >
-                    <AccountLabel type={getDisplayAccountType(account)} />
+                    <AccountLabel type={account.account_type} />
                     <p className="text-base font-bold text-foreground">
                       {formatBalance(account.balance)} {account.currency}
                     </p>
