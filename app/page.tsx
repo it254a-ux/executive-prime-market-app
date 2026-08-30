@@ -10,7 +10,6 @@ import type { MT5Account } from '@deriv/core';
 
 const navLinks = [
   { label: 'Dashboard',         icon: '🏠', href: 'dashboard' },
-  { label: 'My Accounts',       icon: '💼', href: 'accounts' },
   { label: 'MT5',               icon: '📊', href: 'mt5' },
   { label: 'DTrader',           icon: '💹', href: 'dtrader' },
   { label: 'Smart Trading Terminal',   icon: '🤖', href: 'botbuilder' },
@@ -188,10 +187,6 @@ function SmsButton() {
  * (DTrader etc.) already display the authoritative, correct live balance,
  * and keeping a second independent balance source in the sidebar risked
  * drifting out of sync with what a trade actually did to the account.
- * The dedicated "My Accounts" page still shows live balances — this is
- * scoped to the sidebar switcher only. This switches between Options
- * accounts only — MT5 accounts have their own dedicated page (MT5Page)
- * since they're a structurally separate account type.
  */
 function SidebarAuth({ onClose }: { onClose: () => void }) {
   const { auth } = useDerivWSContext();
@@ -265,8 +260,6 @@ function SidebarAuth({ onClose }: { onClose: () => void }) {
 
 function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
   const cards = [
-    { label: 'My Accounts',       icon: '💼', page: 'accounts' },
-    { label: 'MT5',               icon: '📊', page: 'mt5' },
     { label: 'DTrader',           icon: '💹', page: 'dtrader' },
     { label: 'Smart Trading Terminal',   icon: '🤖', page: 'botbuilder' },
     { label: 'Free Bots by EPM',  icon: '🎁', page: 'freebots' },
@@ -328,13 +321,7 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
   );
 }
 
-/**
- * Dedicated "My Accounts" page — lists every account under the current
- * login (both demo and real), each with its live balance from
- * `liveBalances` (falling back to the auth snapshot only until the first
- * live update arrives). Unlike the sidebar switcher, this is not limited
- * to the single active account: every account the user has is shown at
- * once, grouped by Real / Demo.
+
  */
 interface AccountLike {
   account_id: string;
@@ -343,9 +330,6 @@ interface AccountLike {
   account_type: string;
 }
 
-/** One row in the My Accounts list. Pulled into its own component (rather
- *  than inline in a .map) because it calls useBalanceFlash, and hooks can't
- *  run inside an array callback. */
 function AccountRow({
   acc,
   kind,
@@ -406,7 +390,7 @@ function AccountsPage() {
     return (
       <div style={{ width: '100%', minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'rgb(var(--foreground))', gap: '16px', background: 'rgb(var(--background))', padding: '40px 20px', boxSizing: 'border-box' }}>
         <div style={{ fontSize: '48px' }}>💼</div>
-        <h2 style={{ color: '#c9a84c', margin: 0, textAlign: 'center' }}>My Accounts</h2>
+        <h2 style={{ color: '#c9a84c', margin: 0, textAlign: 'center' }}/h2>
         <p style={{ color: 'rgb(var(--foreground) / 0.4)', margin: 0, textAlign: 'center', maxWidth: '360px' }}>
           Log in to view every demo and real account under your login, with live balances.
         </p>
@@ -481,14 +465,6 @@ function AccountsPage() {
 /**
  * Dedicated "MT5" page — lists every MT5 account under the current login,
  * fetched via fetchMT5Accounts (Deriv's legacy WS API; see use-auth.ts).
- * This is intentionally a separate page from "My Accounts": MT5 accounts
- * are a structurally different account type from the Options/Multipliers
- * accounts shown there (different API, different login ID format, no
- * live-balance subscription available). There is no iframe for actual MT5
- * trading yet — Deriv does not support trade execution via any API, so
- * trading itself will always happen in a separate embedded app or the
- * real MetaTrader 5 terminal, once that URL is wired into iframeBases.
- */
 function MT5Row({ acc }: { acc: MT5Account }) {
   return (
     <div
