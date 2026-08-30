@@ -1,165 +1,119 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTheme } from 'next-themes';
-import { Sun, Moon, Menu, X } from 'lucide-react';
-import { DerivWSProvider, useDerivWSContext, LiveBalanceMap } from '@/components/custom/deriv-ws-provider';
+import { Sun, Moon, MessageCircle } from 'lucide-react';
+import { DerivWSProvider, useDerivWSContext, LiveBalance } from '@/components/custom/deriv-ws-provider';
 import { HeroBackground } from '@/components/custom/hero-background';
 import { FreeBotsPage } from '@/components/custom/free-bots-page';
-import type { MT5Account } from '@deriv/core';
 
 const navLinks = [
   { label: 'Dashboard',         icon: '🏠', href: 'dashboard' },
-  { label: 'My Accounts',       icon: '💼', href: 'accounts' },
-  { label: 'MT5',               icon: '📊', href: 'mt5' },
+  { label: 'Charts',            icon: '📊', href: 'charts' },
   { label: 'DTrader',           icon: '💹', href: 'dtrader' },
-  { label: 'Smart Trading Terminal',   icon: '🤖', href: 'botbuilder' },
+  { label: 'Analysis Tool',     icon: '🔍', href: 'analysis' },
+  { label: 'Bot Builder',       icon: '🤖', href: 'botbuilder' },
   { label: 'Free Bots by EPM',  icon: '🎁', href: 'freebots' },
   { label: 'EPM Analyser Tool', icon: '📡', href: 'epmanalyser' },
-  { label: 'Trading Courses', icon: '🎓', href: 'tutorials' },
+  { label: 'Copy Trading',      icon: '🔗', href: 'copytrading' },
+  { label: 'Trading Tutorials', icon: '🎓', href: 'tutorials' },
 ];
 
 const iframeBases: Record<string, string> = {
   charts:      'https://charts-accumulators-app.vercel.app',
   dtrader:     'https://rise-fall-epm-dtrader.vercel.app',
   analysis:    'https://digits-epm-analysis.vercel.app',
+  copytrading: 'https://epm-copy-trading.vercel.app',
   botbuilder:  'https://epm-botbuilder-uo51.vercel.app',
   epmanalyser: 'https://digits-epm-analysis.vercel.app/epm-analyser',
-  tutorials:   'https://epm-botbuilder-uo51.vercel.app',
-  // 'mt5' is intentionally NOT listed here yet — it has no iframe base
-  // until the separate MT5 trading repo's URL is provided. Until then,
-  // 'mt5' renders the in-app MT5Page (account list) below instead of an
-  // iframe, the same way 'accounts' and 'freebots' do.
 };
 
-// Some embedded apps use a URL hash to pick an initial internal tab on load
-// (epm-botbuilder reads location.hash against ['dashboard','bot_builder',
-// 'chart','tutorial','ai_bot_builder']). This must always be appended AFTER
-// any query string we build below — a fragment can never precede a query
-// string in a valid URL, so `#hash?query` would silently break both the
-// auth params and the hash-based tab detection.
-const iframeHashes: Record<string, string> = {
-  tutorials: 'tutorial',
-};
-
-// The Trading Courses page ('tutorials') embeds the exact same
-// epm-botbuilder deployment as the Smart Trading Terminal ('botbuilder'),
-// just jumped straight to its Tutorials tab via the hash above. Without a
-// signal, epm-botbuilder can't tell the two embeds apart, so its tab bar
-// and Run panel would render on both. This flag is read by epm-botbuilder's
-// main.tsx (?embed=tutorial-only) to hide its own tab bar + Run panel only
-// for this embed — 'botbuilder' never gets this param, so it always renders
-// its full UI untouched.
-const TUTORIAL_ONLY_EMBED_PARAM = { embed: 'tutorial-only' } as const;
-
-// Builds the final iframe src for a given page: base URL, plus an optional
-// query string, plus the page's hash suffix (if any) — always in that order,
-// per the comment above. Centralizing this in one place means the
-// tutorial-only flag only has to be applied once, not duplicated across the
-// three separate places (public preload, active authenticated page,
-// background preload queue) that each build one of these URLs.
-function buildIframeSrc(page: string, base: string, extraParams?: Record<string, string>): string {
-  const hashSuffix = iframeHashes[page] ? `#${iframeHashes[page]}` : '';
-  const queryParams: Record<string, string> = { ...extraParams };
-  if (page === 'tutorials') {
-    Object.assign(queryParams, TUTORIAL_ONLY_EMBED_PARAM);
-  }
-  const queryString = Object.keys(queryParams).length > 0 ? `?${new URLSearchParams(queryParams).toString()}` : '';
-  return `${base}${queryString}${hashSuffix}`;
-}
-
-// Theme sync protocol used to keep every embedded iframe app's theme in
-// lockstep with this outer shell's theme (next-themes state does not cross
-// iframe/origin boundaries on its own).
-const THEME_REQUEST_MSG = 'epm-theme-request';
-const THEME_UPDATE_MSG = 'epm-theme-update';
+// Contact number used by the WhatsApp and SMS quick-contact buttons in the nav bar.
+const CONTACT_NUMBER = '+254759926803';
 
 function resolveBalance(
   account: { account_id: string; balance: number | string; currency: string },
-  liveBalances: LiveBalanceMap
+  liveBalance: LiveBalance | null
 ): { balance: number; currency: string } {
-  const live = liveBalances[account.account_id];
-  if (live) {
-    return { balance: live.balance, currency: live.currency };
+  if (liveBalance && liveBalance.loginid === account.account_id) {
+    return { balance: liveBalance.balance, currency: liveBalance.currency };
   }
   return { balance: Number(account.balance), currency: account.currency };
 }
 
-/** Global keyframes for the live-balance pulse dot and flash-on-change effect.
- *  Injected once via a <style> tag (see HomePageInner) so no separate CSS
- *  file needs to be touched. */
-const LIVE_STYLE_ID = 'epm-live-balance-styles';
-function LiveStyles() {
+function ThemeToggleButton() {
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+  const isDark = theme === 'dark';
   return (
-    <style id={LIVE_STYLE_ID}>{`
-      @keyframes epm-live-pulse {
-        0% { box-shadow: 0 0 0 0 rgba(76,201,120,0.55); }
-        70% { box-shadow: 0 0 0 6px rgba(76,201,120,0); }
-        100% { box-shadow: 0 0 0 0 rgba(76,201,120,0); }
-      }
-    `}</style>
+    <button
+      onClick={() => setTheme(isDark ? 'light' : 'dark')}
+      aria-label="Toggle theme"
+      style={{
+        background: 'none', border: '1px solid rgba(201,168,76,0.3)', borderRadius: '7px',
+        padding: '7px 10px', cursor: 'pointer', color: '#c9a84c',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        transition: 'border-color 0.2s, background 0.2s',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(201,168,76,0.1)'; e.currentTarget.style.borderColor = 'rgba(201,168,76,0.6)'; }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.borderColor = 'rgba(201,168,76,0.3)'; }}
+    >
+      {isDark ? <Sun size={16} strokeWidth={2} /> : <Moon size={16} strokeWidth={2} />}
+    </button>
   );
 }
 
-/** Small pulsing dot + "LIVE" label shown next to a balance that is backed
- *  by the real-time `balance`/`account:'all'` subscription (as opposed to
- *  the one-time login snapshot). */
-function LiveBadge({ live, size = 5 }: { live: boolean; size?: number }) {
+// Opens a WhatsApp chat with CONTACT_NUMBER. wa.me links want the number
+// without "+" or any other punctuation.
+function WhatsAppButton() {
+  const digits = CONTACT_NUMBER.replace(/[^\d]/g, '');
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-      <span
-        style={{
-          width: `${size}px`, height: `${size}px`, borderRadius: '50%',
-          background: live ? '#4cc978' : 'rgb(var(--foreground) / 0.25)',
-          animation: live ? 'epm-live-pulse 1.8s infinite' : 'none',
-        }}
-      />
-      {live && (
-        <span style={{ fontSize: '5px', fontWeight: 700, letterSpacing: '0.06em', color: '#4cc978' }}>LIVE</span>
-      )}
-    </span>
+    <a
+      href={`https://wa.me/${digits}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="Chat on WhatsApp"
+      style={{
+        background: 'none', border: '1px solid rgba(37,211,102,0.4)', borderRadius: '7px',
+        padding: '7px 10px', cursor: 'pointer', color: '#25D366',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        transition: 'border-color 0.2s, background 0.2s', textDecoration: 'none',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(37,211,102,0.1)'; e.currentTarget.style.borderColor = 'rgba(37,211,102,0.7)'; }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.borderColor = 'rgba(37,211,102,0.4)'; }}
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 004.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.9 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0012.04 2zm5.79 14.13c-.24.68-1.4 1.32-1.93 1.4-.5.08-1.12.11-1.81-.11a16.6 16.6 0 01-1.65-.61c-2.9-1.25-4.79-4.17-4.93-4.36-.14-.19-1.18-1.57-1.18-3 0-1.42.75-2.12 1.02-2.41.27-.29.58-.36.78-.36.19 0 .39 0 .56.01.18.01.42-.07.65.5.24.58.82 2 .89 2.15.07.15.12.32.02.52-.09.19-.14.31-.28.48-.14.16-.29.36-.42.49-.14.14-.28.28-.12.55.16.28.71 1.17 1.53 1.9 1.05.94 1.94 1.23 2.22 1.37.28.14.44.12.6-.07.16-.19.68-.79.87-1.06.18-.28.36-.23.6-.14.24.09 1.5.71 1.76.84.26.13.43.19.5.3.06.11.06.61-.18 1.29z" />
+      </svg>
+    </a>
   );
 }
 
-/** Tracks the previous value and returns 'up' | 'down' for a short window
- *  right after the value changes, then clears back to null. Used to flash
- *  a balance green (profit/credit) or red (loss/debit) the instant a live
- *  update moves it — so a win/loss is visible immediately, not just implied
- *  by the number itself changing quietly. */
-function useBalanceFlash(value: number): 'up' | 'down' | null {
-  const prevRef = useRef<number | null>(null);
-  const [flash, setFlash] = useState<'up' | 'down' | null>(null);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (prevRef.current !== null && value !== prevRef.current) {
-      setFlash(value > prevRef.current ? 'up' : 'down');
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      timeoutRef.current = setTimeout(() => setFlash(null), 1300);
-    }
-    prevRef.current = value;
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-  }, [value]);
-
-  return flash;
+// Opens the device's default SMS app with CONTACT_NUMBER pre-filled as the recipient.
+function SmsButton() {
+  return (
+    <a
+      href={`sms:${CONTACT_NUMBER}`}
+      aria-label="Send a text message"
+      style={{
+        background: 'none', border: '1px solid rgba(59,130,246,0.4)', borderRadius: '7px',
+        padding: '7px 10px', cursor: 'pointer', color: '#3b82f6',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        transition: 'border-color 0.2s, background 0.2s', textDecoration: 'none',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.1)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.7)'; }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.4)'; }}
+    >
+      <MessageCircle size={16} strokeWidth={2} />
+    </a>
+  );
 }
 
-/**
- * Sidebar account switcher. Shows Real/Demo + account ID only — no balance.
- * Balance is intentionally NOT shown here: the embedded trading apps
- * (DTrader etc.) already display the authoritative, correct live balance,
- * and keeping a second independent balance source in the sidebar risked
- * drifting out of sync with what a trade actually did to the account.
- * The dedicated "My Accounts" page still shows live balances — this is
- * scoped to the sidebar switcher only. This switches between Options
- * accounts only — MT5 accounts have their own dedicated page (MT5Page)
- * since they're a structurally separate account type.
- */
-function SidebarAuth({ onClose }: { onClose: () => void }) {
-  const { auth } = useDerivWSContext();
-  const { authState, activeAccount, accounts, activeAccountId, login, signUp, logout, switchAccount, error } = auth;
+function MobileSidebarAuth({ onClose }: { onClose: () => void }) {
+  const { auth, liveBalance } = useDerivWSContext();
+  const { authState, activeAccount, accounts, activeAccountId, login, signUp, logout, switchAccount } = auth;
   const isAuthenticated = authState === 'authenticated';
   const isAuthenticating = authState === 'authenticating';
   const [switcherOpen, setSwitcherOpen] = useState(false);
@@ -168,36 +122,35 @@ function SidebarAuth({ onClose }: { onClose: () => void }) {
     fontSize: '13px', fontWeight: 600, cursor: 'pointer', border: 'none', textAlign: 'center',
   };
   if (isAuthenticated && activeAccount) {
+    const { balance, currency } = resolveBalance(activeAccount, liveBalance);
     return (
       <div style={{ borderTop: '1px solid rgba(201,168,76,0.15)', marginTop: '8px', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
         <button onClick={() => setSwitcherOpen(o => !o)}
-          style={{
-            ...btnBase,
-            background: 'rgba(201,168,76,0.06)',
-            border: '1px solid rgba(201,168,76,0.25)', color: 'rgb(var(--foreground))', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          }}>
+          style={{ ...btnBase, background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.25)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ padding: '2px 7px', borderRadius: '4px', fontSize: '5px', fontWeight: 700, background: activeAccount.account_type === 'real' ? 'rgba(76,201,120,0.18)' : 'rgba(201,168,76,0.18)', color: activeAccount.account_type === 'real' ? '#4cc978' : '#c9a84c' }}>
+            <span style={{ padding: '2px 7px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, background: activeAccount.account_type === 'real' ? 'rgba(76,201,120,0.18)' : 'rgba(201,168,76,0.18)', color: activeAccount.account_type === 'real' ? '#4cc978' : '#c9a84c' }}>
               {activeAccount.account_type === 'real' ? 'REAL' : 'DEMO'}
             </span>
-            <span style={{ color: 'rgb(var(--foreground) / 0.7)', fontSize: '6px' }}>{activeAccount.account_id}</span>
+            <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '12px' }}>{balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}</span>
           </span>
-          <span style={{ fontSize: '5px', color: 'rgb(var(--foreground) / 0.4)', transition: 'transform 0.2s', transform: switcherOpen ? 'rotate(180deg)' : 'none' }}>▾</span>
+          <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', transition: 'transform 0.2s', transform: switcherOpen ? 'rotate(180deg)' : 'none' }}>▾</span>
         </button>
         {switcherOpen && (
-          <div style={{ background: 'rgb(var(--popover))', border: '1px solid rgba(201,168,76,0.2)', borderRadius: '8px', overflow: 'hidden' }}>
+          <div style={{ background: '#13130f', border: '1px solid rgba(201,168,76,0.2)', borderRadius: '8px', overflow: 'hidden' }}>
             {accounts.map(acc => {
               const isActive = acc.account_id === activeAccountId;
+              const { balance: b, currency: c } = resolveBalance(acc, liveBalance);
               return (
                 <button key={acc.account_id}
                   onClick={async () => { setSwitcherOpen(false); if (!isActive) await switchAccount(acc.account_id); onClose(); }}
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '10px 12px', background: isActive ? 'rgba(201,168,76,0.08)' : 'none', border: 'none', borderBottom: '1px solid rgb(var(--foreground) / 0.05)', color: 'rgb(var(--foreground))', fontSize: '6px', cursor: 'pointer', textAlign: 'left' }}>
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '10px 12px', background: isActive ? 'rgba(201,168,76,0.08)' : 'none', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.05)', color: '#fff', fontSize: '12px', cursor: 'pointer', textAlign: 'left' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ padding: '2px 6px', borderRadius: '4px', fontSize: '4.5px', fontWeight: 700, background: acc.account_type === 'real' ? 'rgba(76,201,120,0.18)' : 'rgba(201,168,76,0.18)', color: acc.account_type === 'real' ? '#4cc978' : '#c9a84c' }}>
+                    <span style={{ padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 700, background: acc.account_type === 'real' ? 'rgba(76,201,120,0.18)' : 'rgba(201,168,76,0.18)', color: acc.account_type === 'real' ? '#4cc978' : '#c9a84c' }}>
                       {acc.account_type === 'real' ? 'REAL' : 'DEMO'}
                     </span>
                     {acc.account_id}
                   </span>
+                  <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px' }}>{b.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {c}</span>
                 </button>
               );
             })}
@@ -210,11 +163,6 @@ function SidebarAuth({ onClose }: { onClose: () => void }) {
   }
   return (
     <div style={{ borderTop: '1px solid rgba(201,168,76,0.15)', marginTop: '8px', paddingTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      {error && (
-        <p style={{ margin: 0, fontSize: '11px', lineHeight: 1.4, color: '#e08787', background: 'rgba(224,135,135,0.08)', border: '1px solid rgba(224,135,135,0.25)', borderRadius: '6px', padding: '8px 10px' }}>
-          Sign-in failed: {error}. Please try again.
-        </p>
-      )}
       <button onClick={() => { login(); onClose(); }} disabled={isAuthenticating}
         style={{ ...btnBase, background: 'none', border: '1px solid rgba(201,168,76,0.5)', color: '#c9a84c', opacity: isAuthenticating ? 0.6 : 1 }}>
         {isAuthenticating ? 'Logging in…' : 'Log In'}
@@ -227,15 +175,91 @@ function SidebarAuth({ onClose }: { onClose: () => void }) {
   );
 }
 
+function AccountSwitcher() {
+  const { auth, liveBalance } = useDerivWSContext();
+  const { accounts, activeAccount, activeAccountId, switchAccount } = auth;
+  const [open, setOpen] = useState(false);
+  if (!activeAccount || accounts.length === 0) return null;
+  const { balance: activeBalance, currency: activeCurrency } = resolveBalance(activeAccount, liveBalance);
+  return (
+    <div style={{ position: 'relative' }}>
+      <button onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 12px', borderRadius: '7px', border: '1px solid rgba(201,168,76,0.35)', background: 'rgba(201,168,76,0.06)', color: '#fff', fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+        <span style={{ padding: '2px 7px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, background: activeAccount.account_type === 'real' ? 'rgba(76,201,120,0.18)' : 'rgba(201,168,76,0.18)', color: activeAccount.account_type === 'real' ? '#4cc978' : '#c9a84c' }}>
+          {activeAccount.account_type === 'real' ? 'REAL' : 'DEMO'}
+        </span>
+        <span style={{ color: 'rgba(255,255,255,0.6)' }}>{activeBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {activeCurrency}</span>
+        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>▾</span>
+      </button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 250 }} />
+          <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, minWidth: '220px', background: '#13130f', border: '1px solid rgba(201,168,76,0.25)', borderRadius: '10px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', zIndex: 260, overflow: 'hidden' }}>
+            {accounts.map(acc => {
+              const isActive = acc.account_id === activeAccountId;
+              const { balance: accBalance, currency: accCurrency } = resolveBalance(acc, liveBalance);
+              return (
+                <button key={acc.account_id} onClick={async () => { setOpen(false); if (!isActive) await switchAccount(acc.account_id); }}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '10px 14px', background: isActive ? 'rgba(201,168,76,0.08)' : 'none', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.05)', color: '#fff', fontSize: '13px', cursor: 'pointer', textAlign: 'left' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ padding: '2px 7px', borderRadius: '4px', fontSize: '10px', fontWeight: 700, background: acc.account_type === 'real' ? 'rgba(76,201,120,0.18)' : 'rgba(201,168,76,0.18)', color: acc.account_type === 'real' ? '#4cc978' : '#c9a84c' }}>
+                      {acc.account_type === 'real' ? 'REAL' : 'DEMO'}
+                    </span>
+                    {acc.account_id}
+                  </span>
+                  <span style={{ color: 'rgba(255,255,255,0.5)' }}>{accBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {accCurrency}</span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function AuthButtons() {
+  const { auth } = useDerivWSContext();
+  const { authState, activeAccount, login, signUp, logout } = auth;
+  const isAuthenticated = authState === 'authenticated';
+  const isAuthenticating = authState === 'authenticating';
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+  if (isMobile) return null;
+  if (isAuthenticated && activeAccount) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <AccountSwitcher />
+        <button onClick={logout} style={{ padding: '7px 18px', borderRadius: '7px', border: '1px solid rgba(201,168,76,0.5)', background: 'none', color: '#c9a84c', fontSize: '13px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>Log Out</button>
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <button onClick={login} disabled={isAuthenticating} style={{ padding: '7px 18px', borderRadius: '7px', border: '1px solid rgba(201,168,76,0.5)', background: 'none', color: '#c9a84c', fontSize: '13px', fontWeight: 600, cursor: isAuthenticating ? 'not-allowed' : 'pointer', opacity: isAuthenticating ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+        {isAuthenticating ? 'Logging in…' : 'Log In'}
+      </button>
+      <button onClick={signUp} disabled={isAuthenticating} style={{ padding: '7px 18px', borderRadius: '7px', background: 'linear-gradient(135deg, #b8962e, #e8c840)', border: 'none', color: '#0a0a0a', fontSize: '13px', fontWeight: 700, cursor: isAuthenticating ? 'not-allowed' : 'pointer', opacity: isAuthenticating ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+        Sign Up
+      </button>
+    </div>
+  );
+}
+
 function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
   const cards = [
-    { label: 'My Accounts',       icon: '💼', page: 'accounts' },
-    { label: 'MT5',               icon: '📊', page: 'mt5' },
+    { label: 'Charts',            icon: '📊', page: 'charts' },
     { label: 'DTrader',           icon: '💹', page: 'dtrader' },
-    { label: 'Smart Trading Terminal',   icon: '🤖', page: 'botbuilder' },
+    { label: 'Analysis Tool',     icon: '🔍', page: 'analysis' },
+    { label: 'Bot Builder',       icon: '🤖', page: 'botbuilder' },
     { label: 'Free Bots by EPM',  icon: '🎁', page: 'freebots' },
     { label: 'EPM Analyser Tool', icon: '📡', page: 'epmanalyser' },
-    { label: 'Trading Courses', icon: '🎓', page: 'tutorials' },
+    { label: 'Copy Trading',      icon: '🔗', page: 'copytrading' },
+    { label: 'Trading Tutorials', icon: '🎓', page: 'tutorials' },
   ];
   return (
     <div style={{
@@ -243,8 +267,8 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      color: 'rgb(var(--foreground))',
-      background: 'rgb(var(--background))',
+      color: '#fff',
+      background: '#181c25',
       position: 'relative',
       overflowX: 'hidden',
       paddingTop: 'clamp(32px, 8vh, 80px)',
@@ -255,11 +279,11 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
     }}>
       <HeroBackground />
       <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', width: '100%', maxWidth: '800px' }}>
-        <h1 style={{ fontFamily: "'Georgia', 'Playfair Display', serif", fontWeight: 700, color: 'rgb(var(--foreground))', margin: 0, textAlign: 'center', letterSpacing: '0.04em', fontSize: 'clamp(26px, 6vw, 44px)' }}>
+        <h1 style={{ fontFamily: "'Georgia', 'Playfair Display', serif", fontWeight: 700, color: '#fff', margin: 0, textAlign: 'center', letterSpacing: '0.04em', fontSize: 'clamp(26px, 6vw, 44px)' }}>
           Executive<span style={{ color: '#e8c840' }}>Prime</span>Markets
         </h1>
         <span style={{ display: 'block', width: '64px', height: '2px', background: 'linear-gradient(90deg, #c9a84c, #e8c840)', borderRadius: '2px' }} />
-        <p style={{ color: 'rgb(var(--foreground) / 0.75)', fontSize: 'clamp(13px, 3vw, 16px)', textAlign: 'center', maxWidth: '520px', margin: 0, lineHeight: 1.6 }}>
+        <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 'clamp(13px, 3vw, 16px)', textAlign: 'center', maxWidth: '520px', margin: 0, lineHeight: 1.6 }}>
           Professional Trading Tools, Premium Bots, Market Intelligence &amp; Financial Growth.
         </p>
         <div style={{
@@ -292,274 +316,12 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
   );
 }
 
-/**
- * Dedicated "My Accounts" page — lists every account under the current
- * login (both demo and real), each with its live balance from
- * `liveBalances` (falling back to the auth snapshot only until the first
- * live update arrives). Unlike the sidebar switcher, this is not limited
- * to the single active account: every account the user has is shown at
- * once, grouped by Real / Demo.
- */
-interface AccountLike {
-  account_id: string;
-  balance: number | string;
-  currency: string;
-  account_type: string;
-}
-
-/** One row in the My Accounts list. Pulled into its own component (rather
- *  than inline in a .map) because it calls useBalanceFlash, and hooks can't
- *  run inside an array callback. */
-function AccountRow({
-  acc,
-  kind,
-  isActive,
-  liveBalances,
-}: {
-  acc: AccountLike;
-  kind: 'real' | 'demo';
-  isActive: boolean;
-  liveBalances: LiveBalanceMap;
-}) {
-  const { balance, currency } = resolveBalance(acc, liveBalances);
-  const isLive = Boolean(liveBalances[acc.account_id]);
-  const flash = useBalanceFlash(balance);
-
-  return (
-    <div
-      style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '14px 16px', borderRadius: '10px',
-        background: flash === 'up' ? 'rgba(76,201,120,0.18)' : flash === 'down' ? 'rgba(224,135,135,0.18)' : (isActive ? 'rgba(201,168,76,0.1)' : 'rgba(201,168,76,0.04)'),
-        border: isActive ? '1px solid rgba(201,168,76,0.4)' : '1px solid rgba(201,168,76,0.15)',
-        transition: 'background 0.6s ease',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-        <span style={{
-          padding: '3px 8px', borderRadius: '4px', fontSize: '5px', fontWeight: 700, flexShrink: 0,
-          background: kind === 'real' ? 'rgba(76,201,120,0.18)' : 'rgba(201,168,76,0.18)',
-          color: kind === 'real' ? '#4cc978' : '#c9a84c',
-        }}>
-          {kind === 'real' ? 'REAL' : 'DEMO'}
-        </span>
-        <span style={{ color: 'rgb(var(--foreground) / 0.85)', fontSize: '6.5px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {acc.account_id}
-        </span>
-        {isActive && (
-          <span style={{ color: 'rgb(var(--foreground) / 0.35)', fontSize: '5.5px', flexShrink: 0 }}>
-            (active)
-          </span>
-        )}
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-        <LiveBadge live={isLive} />
-        <span style={{ color: 'rgb(var(--foreground))', fontSize: '7.5px', fontWeight: 700 }}>
-          {balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function AccountsPage() {
-  const { auth, liveBalances, isConnected } = useDerivWSContext();
-  const { authState, accounts, activeAccountId, login } = auth;
-
-  if (authState !== 'authenticated') {
-    return (
-      <div style={{ width: '100%', minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'rgb(var(--foreground))', gap: '16px', background: 'rgb(var(--background))', padding: '40px 20px', boxSizing: 'border-box' }}>
-        <div style={{ fontSize: '48px' }}>💼</div>
-        <h2 style={{ color: '#c9a84c', margin: 0, textAlign: 'center' }}>My Accounts</h2>
-        <p style={{ color: 'rgb(var(--foreground) / 0.4)', margin: 0, textAlign: 'center', maxWidth: '360px' }}>
-          Log in to view every demo and real account under your login, with live balances.
-        </p>
-        <button
-          onClick={() => login()}
-          style={{ padding: '10px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', border: '1px solid rgba(201,168,76,0.5)', background: 'none', color: '#c9a84c' }}
-        >
-          Log In
-        </button>
-      </div>
-    );
-  }
-
-  const realAccounts = accounts.filter(acc => acc.account_type === 'real');
-  const demoAccounts = accounts.filter(acc => acc.account_type === 'demo');
-
-  const renderGroup = (label: string, list: typeof accounts, kind: 'real' | 'demo') => {
-    if (list.length === 0) return null;
-    return (
-      <div style={{ width: '100%', marginBottom: '24px' }}>
-        <h3 style={{ color: 'rgb(var(--foreground) / 0.55)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 10px 4px' }}>
-          {label}
-        </h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {list.map(acc => {
-            const isActive = acc.account_id === activeAccountId;
-            return (
-              <AccountRow
-                key={acc.account_id}
-                acc={acc}
-                kind={kind}
-                isActive={isActive}
-                liveBalances={liveBalances}
-              />
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <div style={{
-      width: '100%', minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center',
-      color: 'rgb(var(--foreground))', background: 'rgb(var(--background))',
-      padding: 'clamp(24px, 6vh, 60px) 20px 60px', boxSizing: 'border-box',
-    }}>
-      <div style={{ width: '100%', maxWidth: '560px' }}>
-        <h1 style={{ fontFamily: "'Georgia', 'Playfair Display', serif", fontWeight: 700, color: 'rgb(var(--foreground))', margin: '0 0 4px', fontSize: 'clamp(22px, 5vw, 30px)' }}>
-          My <span style={{ color: '#e8c840' }}>Accounts</span>
-        </h1>
-        <p style={{ color: 'rgb(var(--foreground) / 0.5)', fontSize: '13px', margin: '0 0 4px' }}>
-          Every demo and real account under your login, updating live.
-        </p>
-        <p style={{ color: 'rgb(var(--foreground) / 0.35)', fontSize: '11px', margin: '0 0 28px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: isConnected ? '#4cc978' : '#e08787', animation: isConnected ? 'epm-live-pulse 1.8s infinite' : 'none' }} />
-          {isConnected ? 'Connected — balances stream in real time' : 'Reconnecting…'}
-        </p>
-        {realAccounts.length === 0 && demoAccounts.length === 0 ? (
-          <p style={{ color: 'rgb(var(--foreground) / 0.4)', fontSize: '13px' }}>No accounts found for this login.</p>
-        ) : (
-          <>
-            {renderGroup('Real Accounts', realAccounts, 'real')}
-            {renderGroup('Demo Accounts', demoAccounts, 'demo')}
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/**
- * Dedicated "MT5" page — lists every MT5 account under the current login,
- * fetched via fetchMT5Accounts (Deriv's legacy WS API; see use-auth.ts).
- * This is intentionally a separate page from "My Accounts": MT5 accounts
- * are a structurally different account type from the Options/Multipliers
- * accounts shown there (different API, different login ID format, no
- * live-balance subscription available). There is no iframe for actual MT5
- * trading yet — Deriv does not support trade execution via any API, so
- * trading itself will always happen in a separate embedded app or the
- * real MetaTrader 5 terminal, once that URL is wired into iframeBases.
- */
-function MT5Row({ acc }: { acc: MT5Account }) {
-  return (
-    <div
-      style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '14px 16px', borderRadius: '10px',
-        background: 'rgba(201,168,76,0.04)',
-        border: '1px solid rgba(201,168,76,0.15)',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-        <span style={{
-          padding: '3px 8px', borderRadius: '4px', fontSize: '5px', fontWeight: 700, flexShrink: 0,
-          background: acc.account_type === 'real' ? 'rgba(76,201,120,0.18)' : 'rgba(201,168,76,0.18)',
-          color: acc.account_type === 'real' ? '#4cc978' : '#c9a84c',
-        }}>
-          {acc.account_type === 'real' ? 'REAL' : 'DEMO'}
-        </span>
-        <span style={{ color: 'rgb(var(--foreground) / 0.85)', fontSize: '6.5px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {acc.login}
-        </span>
-        <span style={{ color: 'rgb(var(--foreground) / 0.4)', fontSize: '5.5px', flexShrink: 0, textTransform: 'capitalize' }}>
-          {acc.market_type === 'financial' ? 'Financial' : 'Synthetic'}
-        </span>
-      </div>
-      <span style={{ color: 'rgb(var(--foreground))', fontSize: '7.5px', fontWeight: 700, flexShrink: 0 }}>
-        {acc.display_balance} {acc.currency}
-      </span>
-    </div>
-  );
-}
-
-function MT5Page() {
-  const { auth } = useDerivWSContext();
-  const { authState, mt5Accounts, mt5AccountsLoading, login } = auth;
-
-  if (authState !== 'authenticated') {
-    return (
-      <div style={{ width: '100%', minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'rgb(var(--foreground))', gap: '16px', background: 'rgb(var(--background))', padding: '40px 20px', boxSizing: 'border-box' }}>
-        <div style={{ fontSize: '48px' }}>📊</div>
-        <h2 style={{ color: '#c9a84c', margin: 0, textAlign: 'center' }}>MT5</h2>
-        <p style={{ color: 'rgb(var(--foreground) / 0.4)', margin: 0, textAlign: 'center', maxWidth: '360px' }}>
-          Log in to view your MT5 accounts.
-        </p>
-        <button
-          onClick={() => login()}
-          style={{ padding: '10px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', border: '1px solid rgba(201,168,76,0.5)', background: 'none', color: '#c9a84c' }}
-        >
-          Log In
-        </button>
-      </div>
-    );
-  }
-
-  const realAccounts = mt5Accounts.filter(acc => acc.account_type === 'real');
-  const demoAccounts = mt5Accounts.filter(acc => acc.account_type === 'demo');
-
-  const renderGroup = (label: string, list: MT5Account[]) => {
-    if (list.length === 0) return null;
-    return (
-      <div style={{ width: '100%', marginBottom: '24px' }}>
-        <h3 style={{ color: 'rgb(var(--foreground) / 0.55)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 10px 4px' }}>
-          {label}
-        </h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {list.map(acc => (
-            <MT5Row key={acc.login} acc={acc} />
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <div style={{
-      width: '100%', minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center',
-      color: 'rgb(var(--foreground))', background: 'rgb(var(--background))',
-      padding: 'clamp(24px, 6vh, 60px) 20px 60px', boxSizing: 'border-box',
-    }}>
-      <div style={{ width: '100%', maxWidth: '560px' }}>
-        <h1 style={{ fontFamily: "'Georgia', 'Playfair Display', serif", fontWeight: 700, color: 'rgb(var(--foreground))', margin: '0 0 4px', fontSize: 'clamp(22px, 5vw, 30px)' }}>
-          MT5 <span style={{ color: '#e8c840' }}>Accounts</span>
-        </h1>
-        <p style={{ color: 'rgb(var(--foreground) / 0.5)', fontSize: '13px', margin: '0 0 28px' }}>
-          Every MT5 account under your login.
-        </p>
-        {mt5AccountsLoading && mt5Accounts.length === 0 ? (
-          <p style={{ color: 'rgb(var(--foreground) / 0.4)', fontSize: '13px' }}>Loading MT5 accounts…</p>
-        ) : realAccounts.length === 0 && demoAccounts.length === 0 ? (
-          <p style={{ color: 'rgb(var(--foreground) / 0.4)', fontSize: '13px' }}>No MT5 accounts found for this login.</p>
-        ) : (
-          <>
-            {renderGroup('Real Accounts', realAccounts)}
-            {renderGroup('Demo Accounts', demoAccounts)}
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function ComingSoonPage({ label }: { label: string }) {
   return (
-    <div style={{ width: '100%', minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'rgb(var(--foreground))', gap: '16px', background: 'rgb(var(--background))', padding: '40px 20px', boxSizing: 'border-box' }}>
+    <div style={{ width: '100%', minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff', gap: '16px', background: '#181c25', padding: '40px 20px', boxSizing: 'border-box' }}>
       <div style={{ fontSize: '48px' }}>🚧</div>
       <h2 style={{ color: '#c9a84c', margin: 0, textAlign: 'center' }}>{label}</h2>
-      <p style={{ color: 'rgb(var(--foreground) / 0.4)', margin: 0, textAlign: 'center' }}>Coming soon — check back shortly.</p>
+      <p style={{ color: 'rgba(255,255,255,0.4)', margin: 0, textAlign: 'center' }}>Coming soon — check back shortly.</p>
     </div>
   );
 }
@@ -572,30 +334,9 @@ function HomePageInner() {
     }
     return 'dashboard';
   });
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { auth } = useDerivWSContext();
   const { authState, accessToken, activeAccountId, accounts } = auth;
-
-  // Outer shell theme — this is the single source of truth that gets pushed
-  // down to every embedded iframe app via postMessage, since next-themes
-  // state does not cross iframe/origin boundaries on its own.
-  const { theme, setTheme } = useTheme();
-  const [themeMounted, setThemeMounted] = useState(false);
-  useEffect(() => setThemeMounted(true), []);
-
-  // Sidebar is now a floating panel: closed by default (just the menu
-  // button shows), opened by clicking the menu button, closed via the X
-  // inside the panel, the backdrop, or the Escape key. It overlays the
-  // page instead of pushing/compressing the content.
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  useEffect(() => {
-    if (!sidebarOpen) return;
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setSidebarOpen(false);
-    }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [sidebarOpen]);
 
   const [preloadedPages, setPreloadedPages] = useState<Set<string>>(() => {
     const initial = new Set<string>();
@@ -622,30 +363,19 @@ function HomePageInner() {
   const handleNavClick = (href: string) => {
     handleNavHover(href);
     setActivePage(href);
-    window.history.pushState(null, '', href === 'dashboard' ? '/' : `/${href}`);
     setSidebarOpen(false);
+    window.history.pushState(null, '', href === 'dashboard' ? '/' : `/${href}`);
   };
 
   const [loadedCombos, setLoadedCombos] = useState<Record<string, string>>({});
   const backgroundQueueTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Refs to every currently-mounted iframe, keyed by the same combo key used
-  // in loadedCombos, so we can postMessage theme updates directly to them.
-  const iframeRefs = useRef<Record<string, HTMLIFrameElement | null>>({});
-
-  // Every distinct origin we might embed — used to validate incoming
-  // postMessage requests so we only ever reply to our own iframes.
-  const allowedOrigins = useMemo(
-    () => Array.from(new Set(Object.values(iframeBases).map(base => new URL(base).origin))),
-    []
-  );
 
   useEffect(() => {
     if (authState === 'authenticated') return;
     preloadedPages.forEach(page => {
       const base = iframeBases[page]; if (!base) return;
       const key = `${page}::public`;
-      const src = buildIframeSrc(page, base);
-      setLoadedCombos(prev => (prev[key] ? prev : { ...prev, [key]: src }));
+      setLoadedCombos(prev => (prev[key] ? prev : { ...prev, [key]: base }));
     });
   }, [preloadedPages, authState]);
 
@@ -655,8 +385,8 @@ function HomePageInner() {
     const key = `${activePage}::${activeAccountId}`;
     setLoadedCombos(prev => {
       if (prev[key]) return prev;
-      const src = buildIframeSrc(activePage, base, { token: accessToken, acct: activeAccountId });
-      return { ...prev, [key]: src };
+      const params = new URLSearchParams({ token: accessToken, acct: activeAccountId });
+      return { ...prev, [key]: `${base}?${params.toString()}` };
     });
   }, [activePage, authState, accessToken, activeAccountId]);
 
@@ -671,8 +401,8 @@ function HomePageInner() {
           for (const acc of accounts) {
             const key = `${page}::${acc.account_id}`;
             if (!prev[key]) {
-              const src = buildIframeSrc(page, base, { token: accessToken, acct: acc.account_id });
-              return { ...prev, [key]: src };
+              const params = new URLSearchParams({ token: accessToken, acct: acc.account_id });
+              return { ...prev, [key]: `${base}?${params.toString()}` };
             }
           }
         }
@@ -691,189 +421,80 @@ function HomePageInner() {
     });
   }, [authState]);
 
-  // Reply to "what's the current theme?" requests from any embedded iframe,
-  // but only if the request came from one of our own known iframe origins.
-  useEffect(() => {
-    if (!themeMounted) return;
-    function handleThemeRequest(event: MessageEvent) {
-      if (!allowedOrigins.includes(event.origin)) return;
-      if (event.data?.type !== THEME_REQUEST_MSG) return;
-      const win = event.source as Window | null;
-      win?.postMessage({ type: THEME_UPDATE_MSG, theme: theme === 'dark' ? 'dark' : 'light' }, event.origin);
-    }
-    window.addEventListener('message', handleThemeRequest);
-    return () => window.removeEventListener('message', handleThemeRequest);
-  }, [theme, themeMounted, allowedOrigins]);
-
-  // Whenever the outer theme changes, immediately push it to every
-  // currently-loaded iframe so they update live (not just on next reload).
-  useEffect(() => {
-    if (!themeMounted) return;
-    Object.entries(iframeRefs.current).forEach(([key, el]) => {
-      if (!el) return;
-      const src = loadedCombos[key];
-      if (!src) return;
-      try {
-        const origin = new URL(src).origin;
-        el.contentWindow?.postMessage({ type: THEME_UPDATE_MSG, theme: theme === 'dark' ? 'dark' : 'light' }, origin);
-      } catch {
-        // ignore malformed src
-      }
-    });
-  }, [theme, themeMounted, loadedCombos]);
-
   const hasIframeBase = !!iframeBases[activePage];
 
   return (
-    <main style={{ margin: 0, padding: 0, width: '100vw', height: '100dvh', background: 'rgb(var(--background))', fontFamily: 'Inter, sans-serif', overflow: 'visible', position: 'relative' }}>
-      <LiveStyles />
+    <main style={{ margin: 0, padding: 0, width: '100vw', height: '100dvh', background: '#181c25', fontFamily: 'Inter, sans-serif', overflow: 'hidden', position: 'relative', display: 'flex', flexDirection: 'column' }}>
 
-      {/* Small fixed menu button — always visible, does not affect layout.
-          Opens the floating sidebar panel. */}
-      {!sidebarOpen && (
-        <div
-          style={{
-            position: 'fixed', top: '14px', left: '14px', zIndex: 150,
-            display: 'flex', alignItems: 'stretch',
-            background: 'rgb(var(--background))', border: '1px solid rgba(201,168,76,0.25)',
-            borderRadius: '10px', overflow: 'hidden',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-          }}
-        >
-          <button
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Open menu"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          >
-            <Menu size={15} color="#c9a84c" strokeWidth={2} />
+      <nav style={{ zIndex: 200, height: '62px', flexShrink: 0, background: 'rgba(24,28,37,0.97)', borderBottom: '1px solid rgba(201,168,76,0.18)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', padding: '0 12px', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+          <button onClick={() => setSidebarOpen(o => !o)} aria-label="Toggle menu"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            {[0, 1, 2].map(i => (
+              <span key={i} style={{ display: 'block', width: '22px', height: '2px', background: '#c9a84c', borderRadius: '2px', transform: sidebarOpen ? (i === 0 ? 'rotate(45deg) translate(5px, 5px)' : i === 2 ? 'rotate(-45deg) translate(5px, -5px)' : 'scaleX(0)') : 'none', transition: 'all 0.2s' }} />
+            ))}
           </button>
-          {themeMounted && (
-            <button
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              aria-label="Toggle theme"
-              style={{ background: 'none', border: 'none', borderLeft: '1px solid rgba(201,168,76,0.25)', cursor: 'pointer', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          <a href="/" onClick={e => { e.preventDefault(); handleNavClick('dashboard'); }} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
+            <img src="/logo.png" alt="EPM logo" style={{ height: '46px', width: 'auto', display: 'block' }} />
+          </a>
+        </div>
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', minWidth: 0 }}>
+          <span style={{ fontFamily: "'Georgia', 'Playfair Display', serif", fontSize: 'clamp(13px, 3.5vw, 19px)', fontWeight: 700, letterSpacing: '0.05em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', userSelect: 'none' }}>
+            <span style={{ color: '#ffffff' }}>Executive</span>
+            <span style={{ color: '#e8c840' }}>Prime</span>
+            <span style={{ color: '#ffffff' }}>Markets</span>
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+          <ThemeToggleButton />
+          <WhatsAppButton />
+          <SmsButton />
+          <AuthButtons />
+        </div>
+      </nav>
+
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
+        {sidebarOpen && <div onClick={() => setSidebarOpen(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 90 }} />}
+
+        <aside style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: '230px', background: '#181c25', borderRight: '1px solid rgba(201,168,76,0.12)', display: 'flex', flexDirection: 'column', padding: '16px 8px', gap: '2px', zIndex: 100, overflowY: 'auto', transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)', transition: 'transform 0.25s ease' }}>
+          {navLinks.map(link => (
+            <a key={link.label} href="#" onClick={e => { e.preventDefault(); handleNavClick(link.href); }}
+              style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '8px', color: activePage === link.href ? '#c9a84c' : 'rgba(255,255,255,0.6)', fontSize: '13px', textDecoration: 'none', borderLeft: activePage === link.href ? '2px solid #c9a84c' : '2px solid transparent', background: activePage === link.href ? 'rgba(201,168,76,0.08)' : 'transparent', transition: 'all 0.15s' }}
+              onMouseEnter={e => { handleNavHover(link.href); if (activePage !== link.href) { e.currentTarget.style.color = '#c9a84c'; e.currentTarget.style.background = 'rgba(201,168,76,0.08)'; e.currentTarget.style.borderLeftColor = '#c9a84c'; } }}
+              onMouseLeave={e => { if (activePage !== link.href) { e.currentTarget.style.color = 'rgba(255,255,255,0.6)'; e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderLeftColor = 'transparent'; } }}
             >
-              {theme === 'dark' ? <Sun size={14} color="#c9a84c" strokeWidth={2} /> : <Moon size={14} color="#c9a84c" strokeWidth={2} />}
-            </button>
+              <span style={{ fontSize: '16px' }}>{link.icon}</span>
+              {link.label}
+            </a>
+          ))}
+          <div style={{ flex: 1 }} />
+          <MobileSidebarAuth onClose={() => setSidebarOpen(false)} />
+          <div style={{ padding: '12px', fontSize: '10px', color: 'rgba(255,255,255,0.18)', letterSpacing: '1.5px', borderTop: '1px solid rgba(201,168,76,0.1)', marginTop: '8px' }}>
+            POWERED BY <span style={{ color: 'rgba(201,168,76,0.4)' }}>DERIV</span>
+          </div>
+        </aside>
+
+        {/* overflowX hidden = no sideways scroll. overflowY auto = full downward scroll */}
+        <div style={{ flex: 1, position: 'relative', overflowX: 'hidden', overflowY: 'auto', display: 'flex', width: '100%' }}>
+          {Array.from(preloadedPages).map(page => {
+            const isActivePage = activePage === page;
+            const activeKey = authState === 'authenticated' && activeAccountId ? `${page}::${activeAccountId}` : `${page}::public`;
+            const pageKeys = Object.keys(loadedCombos).filter(k => k.startsWith(`${page}::`));
+            return (
+              <div key={page} style={{ width: '100%', height: '100%', position: isActivePage ? 'static' : 'absolute', top: 0, left: 0, opacity: isActivePage ? 1 : 0, pointerEvents: isActivePage ? 'auto' : 'none', zIndex: isActivePage ? 1 : 0, flex: isActivePage ? 1 : undefined, transition: 'opacity 0.35s ease' }}>
+                {pageKeys.map(key => {
+                  const src = loadedCombos[key]; const isVisible = key === activeKey;
+                  return <iframe key={key} src={src} title={key} allow="fullscreen" style={{ width: '100%', height: '100%', border: 'none', position: 'absolute', top: 0, left: 0, opacity: isVisible ? 1 : 0, pointerEvents: isVisible ? 'auto' : 'none', zIndex: isVisible ? 1 : 0, transition: 'opacity 0.3s ease' }} />;
+                })}
+              </div>
+            );
+          })}
+          {!hasIframeBase && activePage === 'dashboard' && <DashboardPage onNavigate={handleNavClick} />}
+          {!hasIframeBase && activePage === 'freebots'   && <FreeBotsPage />}
+          {!hasIframeBase && activePage !== 'dashboard' && activePage !== 'freebots' && (
+            <ComingSoonPage label={navLinks.find(l => l.href === activePage)?.label || activePage} />
           )}
         </div>
-      )}
-
-      {/* Backdrop — click to close, sits behind the panel but above the page content. */}
-      {sidebarOpen && (
-        <div
-          onClick={() => setSidebarOpen(false)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 140, transition: 'opacity 0.2s ease' }}
-        />
-      )}
-
-      {/* Floating sidebar panel — overlays the page rather than pushing/compressing it. */}
-      <aside
-        style={{
-          position: 'fixed', top: 0, left: 0, height: '100%', width: '200px',
-          background: 'rgb(var(--background))', borderRight: '1px solid rgba(201,168,76,0.12)',
-          display: 'flex', flexDirection: 'column', padding: '12px 10px 10px', gap: '1px',
-          zIndex: 150, overflowY: 'auto', boxShadow: '4px 0 24px rgba(0,0,0,0.4)',
-          transform: sidebarOpen ? 'translateX(0)' : 'translateX(-100%)',
-          transition: 'transform 0.22s ease',
-        }}
-      >
-        {/* Header: close button sits in its own absolutely-positioned top-right
-            corner, fully independent of the logo/wordmark below it, so long
-            wordmark text can never visually collide with it regardless of
-            sidebar width (this was the cause of the earlier overlap bug). */}
-        <div style={{ position: 'relative', marginBottom: '14px', paddingTop: '2px' }}>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            aria-label="Close menu"
-            style={{ position: 'absolute', top: '-4px', right: '-4px', background: 'none', border: 'none', cursor: 'pointer', padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgb(var(--foreground) / 0.6)', zIndex: 1 }}
-          >
-            <X size={20} strokeWidth={2} />
-          </button>
-          <a
-            href="/"
-            onClick={e => { e.preventDefault(); handleNavClick('dashboard'); }}
-            style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', paddingRight: '24px', paddingTop: '2px' }}
-          >
-            <img src="/logo.png" alt="EPM logo" style={{ height: '40px', width: 'auto', display: 'block', flexShrink: 0 }} />
-            <span style={{ fontFamily: "'Georgia', 'Playfair Display', serif", fontSize: '13px', fontWeight: 700, letterSpacing: '0.01em', whiteSpace: 'nowrap', userSelect: 'none', textAlign: 'center' }}>
-              <span style={{ color: 'rgb(var(--foreground))' }}>Executive</span>
-              <span style={{ color: '#e8c840' }}>Prime</span>
-              <span style={{ color: 'rgb(var(--foreground))' }}>Markets</span>
-            </span>
-          </a>
-        </div>
-
-        {navLinks.map(link => (
-          <a key={link.label} href="#" onClick={e => { e.preventDefault(); handleNavClick(link.href); }}
-            title={link.label}
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px', justifyContent: 'flex-start', borderRadius: '7px', color: activePage === link.href ? '#c9a84c' : 'rgb(var(--foreground) / 0.6)', fontSize: '12px', textDecoration: 'none', whiteSpace: 'nowrap', borderLeft: activePage === link.href ? '2px solid #c9a84c' : '2px solid transparent', background: activePage === link.href ? 'rgba(201,168,76,0.08)' : 'transparent', transition: 'all 0.15s' }}
-            onMouseEnter={e => { handleNavHover(link.href); if (activePage !== link.href) { e.currentTarget.style.color = '#c9a84c'; e.currentTarget.style.background = 'rgba(201,168,76,0.08)'; e.currentTarget.style.borderLeftColor = '#c9a84c'; } }}
-            onMouseLeave={e => { if (activePage !== link.href) { e.currentTarget.style.color = 'rgb(var(--foreground) / 0.6)'; e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderLeftColor = 'transparent'; } }}
-          >
-            <span style={{ fontSize: '14px', flexShrink: 0 }}>{link.icon}</span>
-            {link.label}
-          </a>
-        ))}
-        <div style={{ flex: 1 }} />
-
-        {/* Theme toggle — same control as the floating top-left button, mirrored
-            here inside the sidebar, directly above the balance/Log Out block. */}
-        {themeMounted && (
-          <button
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            aria-label="Toggle theme"
-            style={{
-              display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
-              padding: '8px 10px', borderRadius: '7px',
-              border: '1px solid rgba(201,168,76,0.2)', background: 'rgba(201,168,76,0.05)',
-              color: 'rgb(var(--foreground) / 0.75)', fontSize: '12px', fontWeight: 600,
-              cursor: 'pointer', marginTop: '6px',
-            }}
-          >
-            {theme === 'dark' ? <Sun size={14} color="#c9a84c" strokeWidth={2} /> : <Moon size={14} color="#c9a84c" strokeWidth={2} />}
-            <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
-          </button>
-        )}
-
-        <SidebarAuth onClose={() => setSidebarOpen(false)} />
-        <div style={{ padding: '10px', fontSize: '9px', color: 'rgb(var(--foreground) / 0.18)', letterSpacing: '1.2px', borderTop: '1px solid rgba(201,168,76,0.1)', marginTop: '6px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-          POWERED BY <span style={{ color: 'rgba(201,168,76,0.4)' }}>DERIV</span>
-        </div>
-      </aside>
-
-      {/* Main content area — full width always, since the sidebar no longer
-          takes up layout space (it floats on top instead). */}
-      <div style={{ width: '100%', height: '100%', position: 'relative', overflowX: 'hidden', overflowY: 'auto', display: 'flex' }}>
-        {Array.from(preloadedPages).map(page => {
-          const isActivePage = activePage === page;
-          const activeKey = authState === 'authenticated' && activeAccountId ? `${page}::${activeAccountId}` : `${page}::public`;
-          const pageKeys = Object.keys(loadedCombos).filter(k => k.startsWith(`${page}::`));
-          return (
-            <div key={page} style={{ width: '100%', height: '100%', position: isActivePage ? 'static' : 'absolute', top: 0, left: 0, opacity: isActivePage ? 1 : 0, pointerEvents: isActivePage ? 'auto' : 'none', zIndex: isActivePage ? 1 : 0, flex: isActivePage ? 1 : undefined, transition: 'opacity 0.35s ease' }}>
-              {pageKeys.map(key => {
-                const src = loadedCombos[key]; const isVisible = key === activeKey;
-                return (
-                  <iframe
-                    key={key}
-                    ref={el => { iframeRefs.current[key] = el; }}
-                    src={src}
-                    title={key}
-                    allow="fullscreen"
-                    style={{ width: '100%', height: '100%', border: 'none', position: 'absolute', top: 0, left: 0, opacity: isVisible ? 1 : 0, pointerEvents: isVisible ? 'auto' : 'none', zIndex: isVisible ? 1 : 0, transition: 'opacity 0.3s ease' }}
-                  />
-                );
-              })}
-            </div>
-          );
-        })}
-        {!hasIframeBase && activePage === 'dashboard' && <DashboardPage onNavigate={handleNavClick} />}
-        {!hasIframeBase && activePage === 'accounts'   && <AccountsPage />}
-        {!hasIframeBase && activePage === 'mt5'        && <MT5Page />}
-        {!hasIframeBase && activePage === 'freebots'   && <FreeBotsPage />}
-        {!hasIframeBase && activePage !== 'dashboard' && activePage !== 'accounts' && activePage !== 'mt5' && activePage !== 'freebots' && (
-          <ComingSoonPage label={navLinks.find(l => l.href === activePage)?.label || activePage} />
-        )}
       </div>
     </main>
   );
