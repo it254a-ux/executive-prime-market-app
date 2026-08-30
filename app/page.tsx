@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTheme } from 'next-themes';
-import { Sun, Moon, Menu, X, MessageCircle } from 'lucide-react';
+import { Sun, Moon, Menu, X } from 'lucide-react';
 import { DerivWSProvider, useDerivWSContext } from '@/components/custom/deriv-ws-provider';
 import { HeroBackground } from '@/components/custom/hero-background';
 import { FreeBotsPage } from '@/components/custom/free-bots-page';
@@ -82,9 +82,15 @@ function WhatsAppButton() {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat on WhatsApp"
-      style={{ background: 'none', border: 'none', cursor: 'pointer', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#25D366' }}
+      style={{
+        background: '#25D366', border: 'none', cursor: 'pointer',
+        width: '34px', height: '34px', borderRadius: '50%',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
+      }}
     >
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      {/* Official WhatsApp glyph, white-on-brand-green to match the real app icon. */}
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="#ffffff" aria-hidden="true">
         <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 004.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.9 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0012.04 2zm5.79 14.13c-.24.68-1.4 1.32-1.93 1.4-.5.08-1.12.11-1.81-.11a16.6 16.6 0 01-1.65-.61c-2.9-1.25-4.79-4.17-4.93-4.36-.14-.19-1.18-1.57-1.18-3 0-1.42.75-2.12 1.02-2.41.27-.29.58-.36.78-.36.19 0 .39 0 .56.01.18.01.42-.07.65.5.24.58.82 2 .89 2.15.07.15.12.32.02.52-.09.19-.14.31-.28.48-.14.16-.29.36-.42.49-.14.14-.28.28-.12.55.16.28.71 1.17 1.53 1.9 1.05.94 1.94 1.23 2.22 1.37.28.14.44.12.6-.07.16-.19.68-.79.87-1.06.18-.28.36-.23.6-.14.24.09 1.5.71 1.76.84.26.13.43.19.5.3.06.11.06.61-.18 1.29z" />
       </svg>
     </a>
@@ -96,9 +102,17 @@ function SmsButton() {
     <a
       href={`sms:${CONTACT_NUMBER}`}
       aria-label="Send a text message"
-      style={{ background: 'none', border: 'none', borderLeft: '1px solid rgba(201,168,76,0.25)', cursor: 'pointer', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3b82f6' }}
+      style={{
+        background: 'linear-gradient(135deg, #34aadc, #0b93f6)', border: 'none', cursor: 'pointer',
+        width: '34px', height: '34px', borderRadius: '50%',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
+      }}
     >
-      <MessageCircle size={15} strokeWidth={2} />
+      {/* Filled speech-bubble glyph, styled after the Messages app icon (white on blue). */}
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="#ffffff" aria-hidden="true">
+        <path d="M12 2C6.48 2 2 5.94 2 10.8c0 2.68 1.4 5.08 3.6 6.7-.13 1.13-.53 2.5-1.47 3.87a.5.5 0 00.53.77c2.06-.5 3.6-1.4 4.63-2.13.87.2 1.78.31 2.71.31 5.52 0 10-3.94 10-8.8S17.52 2 12 2z" />
+      </svg>
     </a>
   );
 }
@@ -446,16 +460,14 @@ function HomePageInner() {
         </div>
       )}
 
-      {/* Floating WhatsApp + SMS quick-contact pill — top center, nudged
-          slightly right of true center, always visible, same visual
-          language as the menu pill on the left. */}
+      {/* Floating WhatsApp + SMS quick-contact icons — top center, nudged
+          slightly right of true center, sitting inline with the embedded
+          app's own top nav row. Two separate branded circular buttons
+          (not a joined pill) using authentic app-style icon glyphs. */}
       <div
         style={{
-          position: 'fixed', top: '14px', left: 'calc(50% + 40px)', transform: 'translateX(-50%)', zIndex: 150,
-          display: 'flex', alignItems: 'stretch',
-          background: 'rgb(var(--background))', border: '1px solid rgba(201,168,76,0.25)',
-          borderRadius: '10px', overflow: 'hidden',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+          position: 'fixed', top: '10px', left: 'calc(50% + 40px)', transform: 'translateX(-50%)', zIndex: 150,
+          display: 'flex', alignItems: 'center', gap: '8px',
         }}
       >
         <WhatsAppButton />
