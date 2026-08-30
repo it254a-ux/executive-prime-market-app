@@ -466,7 +466,7 @@ function HomePageInner() {
           (not a joined pill) using authentic app-style icon glyphs. */}
       <div
         style={{
-          position: 'fixed', top: '10px', left: 'calc(50% + 40px)', transform: 'translateX(-50%)', zIndex: 150,
+          position: 'fixed', top: '4px', left: 'calc(50% + 40px)', transform: 'translateX(-50%)', zIndex: 150,
           display: 'flex', alignItems: 'center', gap: '8px',
         }}
       >
