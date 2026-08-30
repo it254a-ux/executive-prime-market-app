@@ -446,11 +446,12 @@ function HomePageInner() {
         </div>
       )}
 
-      {/* Floating WhatsApp + SMS quick-contact pill — top-right corner,
-          always visible, same visual language as the menu pill on the left. */}
+      {/* Floating WhatsApp + SMS quick-contact pill — top center, nudged
+          slightly right of true center, always visible, same visual
+          language as the menu pill on the left. */}
       <div
         style={{
-          position: 'fixed', top: '14px', right: '14px', zIndex: 150,
+          position: 'fixed', top: '14px', left: 'calc(50% + 40px)', transform: 'translateX(-50%)', zIndex: 150,
           display: 'flex', alignItems: 'stretch',
           background: 'rgb(var(--background))', border: '1px solid rgba(201,168,76,0.25)',
           borderRadius: '10px', overflow: 'hidden',
