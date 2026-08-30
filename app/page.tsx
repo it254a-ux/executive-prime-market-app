@@ -3,10 +3,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTheme } from 'next-themes';
 import { Sun, Moon, Menu, X, MessageCircle } from 'lucide-react';
-import { DerivWSProvider, useDerivWSContext, LiveBalanceMap } from '@/components/custom/deriv-ws-provider';
+import { DerivWSProvider, useDerivWSContext } from '@/components/custom/deriv-ws-provider';
 import { HeroBackground } from '@/components/custom/hero-background';
 import { FreeBotsPage } from '@/components/custom/free-bots-page';
-import type { MT5Account } from '@deriv/core';
 
 const navLinks = [
   { label: 'Dashboard',         icon: '🏠', href: 'dashboard' },
@@ -24,10 +23,6 @@ const iframeBases: Record<string, string> = {
   botbuilder:  'https://epm-botbuilder-uo51.vercel.app',
   epmanalyser: 'https://digits-epm-analysis.vercel.app/epm-analyser',
   tutorials:   'https://epm-botbuilder-uo51.vercel.app',
-  // 'mt5' is intentionally NOT listed here yet — it has no iframe base
-  // until the separate MT5 trading repo's URL is provided. Until then,
-  // 'mt5' renders the in-app MT5Page (account list) below instead of an
-  // iframe, the same way 'accounts' and 'freebots' do.
 };
 
 // Contact number used by the floating WhatsApp and SMS quick-contact buttons.
@@ -74,78 +69,6 @@ function buildIframeSrc(page: string, base: string, extraParams?: Record<string,
 // iframe/origin boundaries on its own).
 const THEME_REQUEST_MSG = 'epm-theme-request';
 const THEME_UPDATE_MSG = 'epm-theme-update';
-
-function resolveBalance(
-  account: { account_id: string; balance: number | string; currency: string },
-  liveBalances: LiveBalanceMap
-): { balance: number; currency: string } {
-  const live = liveBalances[account.account_id];
-  if (live) {
-    return { balance: live.balance, currency: live.currency };
-  }
-  return { balance: Number(account.balance), currency: account.currency };
-}
-
-/** Global keyframes for the live-balance pulse dot and flash-on-change effect.
- *  Injected once via a <style> tag (see HomePageInner) so no separate CSS
- *  file needs to be touched. */
-const LIVE_STYLE_ID = 'epm-live-balance-styles';
-function LiveStyles() {
-  return (
-    <style id={LIVE_STYLE_ID}>{`
-      @keyframes epm-live-pulse {
-        0% { box-shadow: 0 0 0 0 rgba(76,201,120,0.55); }
-        70% { box-shadow: 0 0 0 6px rgba(76,201,120,0); }
-        100% { box-shadow: 0 0 0 0 rgba(76,201,120,0); }
-      }
-    `}</style>
-  );
-}
-
-/** Small pulsing dot + "LIVE" label shown next to a balance that is backed
- *  by the real-time `balance`/`account:'all'` subscription (as opposed to
- *  the one-time login snapshot). */
-function LiveBadge({ live, size = 5 }: { live: boolean; size?: number }) {
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-      <span
-        style={{
-          width: `${size}px`, height: `${size}px`, borderRadius: '50%',
-          background: live ? '#4cc978' : 'rgb(var(--foreground) / 0.25)',
-          animation: live ? 'epm-live-pulse 1.8s infinite' : 'none',
-        }}
-      />
-      {live && (
-        <span style={{ fontSize: '5px', fontWeight: 700, letterSpacing: '0.06em', color: '#4cc978' }}>LIVE</span>
-      )}
-    </span>
-  );
-}
-
-/** Tracks the previous value and returns 'up' | 'down' for a short window
- *  right after the value changes, then clears back to null. Used to flash
- *  a balance green (profit/credit) or red (loss/debit) the instant a live
- *  update moves it — so a win/loss is visible immediately, not just implied
- *  by the number itself changing quietly. */
-function useBalanceFlash(value: number): 'up' | 'down' | null {
-  const prevRef = useRef<number | null>(null);
-  const [flash, setFlash] = useState<'up' | 'down' | null>(null);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (prevRef.current !== null && value !== prevRef.current) {
-      setFlash(value > prevRef.current ? 'up' : 'down');
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      timeoutRef.current = setTimeout(() => setFlash(null), 1300);
-    }
-    prevRef.current = value;
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-  }, [value]);
-
-  return flash;
-}
 
 // Floating WhatsApp + SMS quick-contact pill. Matches the exact visual
 // language of the floating Menu/theme-toggle pill below (same background,
@@ -315,251 +238,6 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
             </div>
           ))}
         </div>
-      </div>
-    </div>
-  );
-}
-
-
- */
-interface AccountLike {
-  account_id: string;
-  balance: number | string;
-  currency: string;
-  account_type: string;
-}
-
-function AccountRow({
-  acc,
-  kind,
-  isActive,
-  liveBalances,
-}: {
-  acc: AccountLike;
-  kind: 'real' | 'demo';
-  isActive: boolean;
-  liveBalances: LiveBalanceMap;
-}) {
-  const { balance, currency } = resolveBalance(acc, liveBalances);
-  const isLive = Boolean(liveBalances[acc.account_id]);
-  const flash = useBalanceFlash(balance);
-
-  return (
-    <div
-      style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '14px 16px', borderRadius: '10px',
-        background: flash === 'up' ? 'rgba(76,201,120,0.18)' : flash === 'down' ? 'rgba(224,135,135,0.18)' : (isActive ? 'rgba(201,168,76,0.1)' : 'rgba(201,168,76,0.04)'),
-        border: isActive ? '1px solid rgba(201,168,76,0.4)' : '1px solid rgba(201,168,76,0.15)',
-        transition: 'background 0.6s ease',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-        <span style={{
-          padding: '3px 8px', borderRadius: '4px', fontSize: '5px', fontWeight: 700, flexShrink: 0,
-          background: kind === 'real' ? 'rgba(76,201,120,0.18)' : 'rgba(201,168,76,0.18)',
-          color: kind === 'real' ? '#4cc978' : '#c9a84c',
-        }}>
-          {kind === 'real' ? 'REAL' : 'DEMO'}
-        </span>
-        <span style={{ color: 'rgb(var(--foreground) / 0.85)', fontSize: '6.5px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {acc.account_id}
-        </span>
-        {isActive && (
-          <span style={{ color: 'rgb(var(--foreground) / 0.35)', fontSize: '5.5px', flexShrink: 0 }}>
-            (active)
-          </span>
-        )}
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-        <LiveBadge live={isLive} />
-        <span style={{ color: 'rgb(var(--foreground))', fontSize: '7.5px', fontWeight: 700 }}>
-          {balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function AccountsPage() {
-  const { auth, liveBalances, isConnected } = useDerivWSContext();
-  const { authState, accounts, activeAccountId, login } = auth;
-
-  if (authState !== 'authenticated') {
-    return (
-      <div style={{ width: '100%', minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'rgb(var(--foreground))', gap: '16px', background: 'rgb(var(--background))', padding: '40px 20px', boxSizing: 'border-box' }}>
-        <div style={{ fontSize: '48px' }}>💼</div>
-        <h2 style={{ color: '#c9a84c', margin: 0, textAlign: 'center' }}/h2>
-        <p style={{ color: 'rgb(var(--foreground) / 0.4)', margin: 0, textAlign: 'center', maxWidth: '360px' }}>
-          Log in to view every demo and real account under your login, with live balances.
-        </p>
-        <button
-          onClick={() => login()}
-          style={{ padding: '10px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', border: '1px solid rgba(201,168,76,0.5)', background: 'none', color: '#c9a84c' }}
-        >
-          Log In
-        </button>
-      </div>
-    );
-  }
-
-  const realAccounts = accounts.filter(acc => acc.account_type === 'real');
-  const demoAccounts = accounts.filter(acc => acc.account_type === 'demo');
-
-  const renderGroup = (label: string, list: typeof accounts, kind: 'real' | 'demo') => {
-    if (list.length === 0) return null;
-    return (
-      <div style={{ width: '100%', marginBottom: '24px' }}>
-        <h3 style={{ color: 'rgb(var(--foreground) / 0.55)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 10px 4px' }}>
-          {label}
-        </h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {list.map(acc => {
-            const isActive = acc.account_id === activeAccountId;
-            return (
-              <AccountRow
-                key={acc.account_id}
-                acc={acc}
-                kind={kind}
-                isActive={isActive}
-                liveBalances={liveBalances}
-              />
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <div style={{
-      width: '100%', minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center',
-      color: 'rgb(var(--foreground))', background: 'rgb(var(--background))',
-      padding: 'clamp(24px, 6vh, 60px) 20px 60px', boxSizing: 'border-box',
-    }}>
-      <div style={{ width: '100%', maxWidth: '560px' }}>
-        <h1 style={{ fontFamily: "'Georgia', 'Playfair Display', serif", fontWeight: 700, color: 'rgb(var(--foreground))', margin: '0 0 4px', fontSize: 'clamp(22px, 5vw, 30px)' }}>
-          My <span style={{ color: '#e8c840' }}>Accounts</span>
-        </h1>
-        <p style={{ color: 'rgb(var(--foreground) / 0.5)', fontSize: '13px', margin: '0 0 4px' }}>
-          Every demo and real account under your login, updating live.
-        </p>
-        <p style={{ color: 'rgb(var(--foreground) / 0.35)', fontSize: '11px', margin: '0 0 28px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: isConnected ? '#4cc978' : '#e08787', animation: isConnected ? 'epm-live-pulse 1.8s infinite' : 'none' }} />
-          {isConnected ? 'Connected — balances stream in real time' : 'Reconnecting…'}
-        </p>
-        {realAccounts.length === 0 && demoAccounts.length === 0 ? (
-          <p style={{ color: 'rgb(var(--foreground) / 0.4)', fontSize: '13px' }}>No accounts found for this login.</p>
-        ) : (
-          <>
-            {renderGroup('Real Accounts', realAccounts, 'real')}
-            {renderGroup('Demo Accounts', demoAccounts, 'demo')}
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/**
- * Dedicated "MT5" page — lists every MT5 account under the current login,
- * fetched via fetchMT5Accounts (Deriv's legacy WS API; see use-auth.ts).
-function MT5Row({ acc }: { acc: MT5Account }) {
-  return (
-    <div
-      style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '14px 16px', borderRadius: '10px',
-        background: 'rgba(201,168,76,0.04)',
-        border: '1px solid rgba(201,168,76,0.15)',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-        <span style={{
-          padding: '3px 8px', borderRadius: '4px', fontSize: '5px', fontWeight: 700, flexShrink: 0,
-          background: acc.account_type === 'real' ? 'rgba(76,201,120,0.18)' : 'rgba(201,168,76,0.18)',
-          color: acc.account_type === 'real' ? '#4cc978' : '#c9a84c',
-        }}>
-          {acc.account_type === 'real' ? 'REAL' : 'DEMO'}
-        </span>
-        <span style={{ color: 'rgb(var(--foreground) / 0.85)', fontSize: '6.5px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {acc.login}
-        </span>
-        <span style={{ color: 'rgb(var(--foreground) / 0.4)', fontSize: '5.5px', flexShrink: 0, textTransform: 'capitalize' }}>
-          {acc.market_type === 'financial' ? 'Financial' : 'Synthetic'}
-        </span>
-      </div>
-      <span style={{ color: 'rgb(var(--foreground))', fontSize: '7.5px', fontWeight: 700, flexShrink: 0 }}>
-        {acc.display_balance} {acc.currency}
-      </span>
-    </div>
-  );
-}
-
-function MT5Page() {
-  const { auth } = useDerivWSContext();
-  const { authState, mt5Accounts, mt5AccountsLoading, login } = auth;
-
-  if (authState !== 'authenticated') {
-    return (
-      <div style={{ width: '100%', minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'rgb(var(--foreground))', gap: '16px', background: 'rgb(var(--background))', padding: '40px 20px', boxSizing: 'border-box' }}>
-        <div style={{ fontSize: '48px' }}>📊</div>
-        <h2 style={{ color: '#c9a84c', margin: 0, textAlign: 'center' }}>MT5</h2>
-        <p style={{ color: 'rgb(var(--foreground) / 0.4)', margin: 0, textAlign: 'center', maxWidth: '360px' }}>
-          Log in to view your MT5 accounts.
-        </p>
-        <button
-          onClick={() => login()}
-          style={{ padding: '10px 20px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', border: '1px solid rgba(201,168,76,0.5)', background: 'none', color: '#c9a84c' }}
-        >
-          Log In
-        </button>
-      </div>
-    );
-  }
-
-  const realAccounts = mt5Accounts.filter(acc => acc.account_type === 'real');
-  const demoAccounts = mt5Accounts.filter(acc => acc.account_type === 'demo');
-
-  const renderGroup = (label: string, list: MT5Account[]) => {
-    if (list.length === 0) return null;
-    return (
-      <div style={{ width: '100%', marginBottom: '24px' }}>
-        <h3 style={{ color: 'rgb(var(--foreground) / 0.55)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 10px 4px' }}>
-          {label}
-        </h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {list.map(acc => (
-            <MT5Row key={acc.login} acc={acc} />
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <div style={{
-      width: '100%', minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center',
-      color: 'rgb(var(--foreground))', background: 'rgb(var(--background))',
-      padding: 'clamp(24px, 6vh, 60px) 20px 60px', boxSizing: 'border-box',
-    }}>
-      <div style={{ width: '100%', maxWidth: '560px' }}>
-        <h1 style={{ fontFamily: "'Georgia', 'Playfair Display', serif", fontWeight: 700, color: 'rgb(var(--foreground))', margin: '0 0 4px', fontSize: 'clamp(22px, 5vw, 30px)' }}>
-          MT5 <span style={{ color: '#e8c840' }}>Accounts</span>
-        </h1>
-        <p style={{ color: 'rgb(var(--foreground) / 0.5)', fontSize: '13px', margin: '0 0 28px' }}>
-          Every MT5 account under your login.
-        </p>
-        {mt5AccountsLoading && mt5Accounts.length === 0 ? (
-          <p style={{ color: 'rgb(var(--foreground) / 0.4)', fontSize: '13px' }}>Loading MT5 accounts…</p>
-        ) : realAccounts.length === 0 && demoAccounts.length === 0 ? (
-          <p style={{ color: 'rgb(var(--foreground) / 0.4)', fontSize: '13px' }}>No MT5 accounts found for this login.</p>
-        ) : (
-          <>
-            {renderGroup('Real Accounts', realAccounts)}
-            {renderGroup('Demo Accounts', demoAccounts)}
-          </>
-        )}
       </div>
     </div>
   );
@@ -737,8 +415,6 @@ function HomePageInner() {
 
   return (
     <main style={{ margin: 0, padding: 0, width: '100vw', height: '100dvh', background: 'rgb(var(--background))', fontFamily: 'Inter, sans-serif', overflow: 'visible', position: 'relative' }}>
-      <LiveStyles />
-
       {/* Small fixed menu button — always visible, does not affect layout.
           Opens the floating sidebar panel. */}
       {!sidebarOpen && (
@@ -894,10 +570,8 @@ function HomePageInner() {
           );
         })}
         {!hasIframeBase && activePage === 'dashboard' && <DashboardPage onNavigate={handleNavClick} />}
-        {!hasIframeBase && activePage === 'accounts'   && <AccountsPage />}
-        {!hasIframeBase && activePage === 'mt5'        && <MT5Page />}
         {!hasIframeBase && activePage === 'freebots'   && <FreeBotsPage />}
-        {!hasIframeBase && activePage !== 'dashboard' && activePage !== 'accounts' && activePage !== 'mt5' && activePage !== 'freebots' && (
+        {!hasIframeBase && activePage !== 'dashboard' && activePage !== 'freebots' && (
           <ComingSoonPage label={navLinks.find(l => l.href === activePage)?.label || activePage} />
         )}
       </div>
