@@ -117,6 +117,31 @@ function SmsButton() {
   );
 }
 
+// tel: is the correct, actually-functional way to trigger a phone call from
+// a web page — the OS/browser hands off to the native dialer with the
+// number pre-filled. There is no JS API to place a call directly from a
+// browser tab, so this href is the real mechanism (same one Apple/Android
+// "click to call" links use), not a stand-in.
+function CallButton() {
+  return (
+    <a
+      href={`tel:${CONTACT_NUMBER}`}
+      aria-label="Call us"
+      style={{
+        background: 'linear-gradient(135deg, #34d399, #059669)', border: 'none', cursor: 'pointer',
+        width: '34px', height: '34px', borderRadius: '50%',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
+      }}
+    >
+      {/* Filled phone-receiver glyph, styled after standard call-app icons (white on green). */}
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="#ffffff" aria-hidden="true">
+        <path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.02-.24c1.12.37 2.33.57 3.57.57a1 1 0 011 1V20a1 1 0 01-1 1C10.61 21 3 13.39 3 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.24.2 2.45.57 3.57a1 1 0 01-.25 1.02l-2.2 2.2z" />
+      </svg>
+    </a>
+  );
+}
+
 /**
  * Sidebar account switcher. Shows Real/Demo + account ID only — no balance.
  * Balance is intentionally NOT shown here: the embedded trading apps
@@ -460,9 +485,9 @@ function HomePageInner() {
         </div>
       )}
 
-      {/* Floating WhatsApp + SMS quick-contact icons — top center, nudged
+      {/* Floating WhatsApp + SMS + Call quick-contact icons — top center, nudged
           slightly right of true center, sitting inline with the embedded
-          app's own top nav row. Two separate branded circular buttons
+          app's own top nav row. Three separate branded circular buttons
           (not a joined pill) using authentic app-style icon glyphs. */}
       <div
         style={{
@@ -472,6 +497,7 @@ function HomePageInner() {
       >
         <WhatsAppButton />
         <SmsButton />
+        <CallButton />
       </div>
 
       {/* Backdrop — click to close, sits behind the panel but above the page content. */}
