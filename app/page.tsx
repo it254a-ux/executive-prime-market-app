@@ -10,7 +10,6 @@ import type { MT5Account } from '@deriv/core';
 
 const navLinks = [
   { label: 'Dashboard',         icon: '🏠', href: 'dashboard' },
-  { label: 'MT5',               icon: '📊', href: 'mt5' },
   { label: 'DTrader',           icon: '💹', href: 'dtrader' },
   { label: 'Smart Trading Terminal',   icon: '🤖', href: 'botbuilder' },
   { label: 'Free Bots by EPM',  icon: '🎁', href: 'freebots' },
