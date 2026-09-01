@@ -1,50 +1,224 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
-interface BotProduct {
-  id: number;
-  name: string;
-  description: string;
-  market: string;
-  risk_level: string;
-  price_usd: string;
-}
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '10px 12px',
+  borderRadius: '8px',
+  border: '1px solid rgba(201,168,76,0.25)',
+  background: 'rgb(var(--background))',
+  color: 'rgb(var(--foreground))',
+  fontSize: '13px',
+  boxSizing: 'border-box',
+};
 
-export function StorePage() {
-  const [bots, setBots] = useState<BotProduct[]>([]);
-  const [loading, setLoading] = useState(true);
+const labelStyle: React.CSSProperties = {
+  fontSize: '12px',
+  fontWeight: 600,
+  color: 'rgb(var(--foreground) / 0.75)',
+  marginBottom: '4px',
+  display: 'block',
+};
+
+const cardStyle: React.CSSProperties = {
+  background: 'rgba(201,168,76,0.06)',
+  border: '1px solid rgba(201,168,76,0.2)',
+  borderRadius: '14px',
+  padding: '24px',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '14px',
+};
+
+const buttonStyle: React.CSSProperties = {
+  padding: '12px 20px',
+  borderRadius: '8px',
+  border: 'none',
+  fontSize: '13px',
+  fontWeight: 700,
+  cursor: 'pointer',
+  background: 'linear-gradient(135deg, #b8962e, #e8c840)',
+  color: '#0a0a0a',
+};
+
+function CustomBotRequestForm() {
+  const [name, setName] = useState('');
+  const [contact, setContact] = useState('');
+  const [strategyDetails, setStrategyDetails] = useState('');
+  const [amountUsd, setAmountUsd] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [checkingOutId, setCheckingOutId] = useState<number | null>(null);
 
-  useEffect(() => {
-    fetch('/api/store/bots')
-      .then(res => res.json())
-      .then(data => {
-        if (data.error) throw new Error(data.error);
-        setBots(data.bots || []);
-      })
-      .catch(() => setError('Failed to load bots. Please try again shortly.'))
-      .finally(() => setLoading(false));
-  }, []);
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
 
-  async function handleBuy(botId: number) {
-    setCheckingOutId(botId);
+    const amount = Number(amountUsd);
+    if (!name.trim() || !contact.trim() || !strategyDetails.trim()) {
+      setError('Please fill in your name, contact, and strategy details.');
+      return;
+    }
+    if (!amount || amount <= 0) {
+      setError('Please enter how much you want to pay for this bot.');
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      const res = await fetch('/api/checkout/create', {
+      const res = await fetch('/api/requests/bot-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productType: 'bot', productId: botId }),
+        body: JSON.stringify({ name, contact, strategyDetails, amountUsd: amount }),
       });
       const data = await res.json();
       if (!res.ok || !data.checkoutUrl) throw new Error(data.error || 'Checkout failed');
+      // Payment happens on the gateway's page — the request is only marked
+      // submitted once the webhook confirms payment succeeded.
       window.location.href = data.checkoutUrl;
     } catch {
       setError('Could not start checkout. Please try again.');
-      setCheckingOutId(null);
+      setSubmitting(false);
     }
   }
 
+  return (
+    <div style={cardStyle}>
+      <div>
+        <h2 style={{ margin: 0, color: '#c9a84c', fontSize: '17px' }}>Order a Custom Bot</h2>
+        <p style={{ margin: '6px 0 0', fontSize: '12px', color: 'rgb(var(--foreground) / 0.65)', lineHeight: 1.5 }}>
+          Tell us your strategy and everything you want the bot to do. Pay with crypto to submit —
+          your request is sent to us the moment payment is confirmed.
+        </p>
+      </div>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div>
+          <label style={labelStyle}>Your name</label>
+          <input style={inputStyle} value={name} onChange={e => setName(e.target.value)} placeholder="Jane Doe" />
+        </div>
+        <div>
+          <label style={labelStyle}>Contact (email, phone, or WhatsApp)</label>
+          <input style={inputStyle} value={contact} onChange={e => setContact(e.target.value)} placeholder="jane@example.com" />
+        </div>
+        <div>
+          <label style={labelStyle}>Strategy & details</label>
+          <textarea
+            style={{ ...inputStyle, minHeight: '120px', resize: 'vertical', fontFamily: 'inherit' }}
+            value={strategyDetails}
+            onChange={e => setStrategyDetails(e.target.value)}
+            placeholder="Describe the strategy, market, entry/exit rules, risk level, and anything else the bot should do..."
+          />
+        </div>
+        <div>
+          <label style={labelStyle}>Amount you'd like to pay (USD)</label>
+          <input
+            style={inputStyle}
+            type="number"
+            min="1"
+            step="0.01"
+            value={amountUsd}
+            onChange={e => setAmountUsd(e.target.value)}
+            placeholder="50"
+          />
+        </div>
+        {error && (
+          <p style={{ margin: 0, fontSize: '12px', color: '#e08787', background: 'rgba(224,135,135,0.08)', border: '1px solid rgba(224,135,135,0.25)', borderRadius: '6px', padding: '8px 10px' }}>
+            {error}
+          </p>
+        )}
+        <button type="submit" disabled={submitting} style={{ ...buttonStyle, opacity: submitting ? 0.6 : 1 }}>
+          {submitting ? 'Redirecting to payment…' : 'Pay with crypto & submit'}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function AccountManagementForm() {
+  const [name, setName] = useState('');
+  const [contact, setContact] = useState('');
+  const [details, setDetails] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+
+    if (!name.trim() || !contact.trim() || !details.trim()) {
+      setError('Please fill in your name, contact, and details.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/requests/account-management', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, contact, details }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Submission failed');
+      setSubmitted(true);
+    } catch {
+      setError('Could not submit. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (submitted) {
+    return (
+      <div style={cardStyle}>
+        <h2 style={{ margin: 0, color: '#c9a84c', fontSize: '17px' }}>Request received</h2>
+        <p style={{ margin: 0, fontSize: '13px', color: 'rgb(var(--foreground) / 0.75)', lineHeight: 1.5 }}>
+          We'll reach out on the contact you gave us. Payment is arranged after the service is delivered.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={cardStyle}>
+      <div>
+        <h2 style={{ margin: 0, color: '#c9a84c', fontSize: '17px' }}>Account Management & Other Services</h2>
+        <p style={{ margin: '6px 0 0', fontSize: '12px', color: 'rgb(var(--foreground) / 0.65)', lineHeight: 1.5 }}>
+          Tell us what you need. No payment now — this is billed after the service is done.
+        </p>
+      </div>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div>
+          <label style={labelStyle}>Your name</label>
+          <input style={inputStyle} value={name} onChange={e => setName(e.target.value)} placeholder="Jane Doe" />
+        </div>
+        <div>
+          <label style={labelStyle}>Contact (email, phone, or WhatsApp)</label>
+          <input style={inputStyle} value={contact} onChange={e => setContact(e.target.value)} placeholder="jane@example.com" />
+        </div>
+        <div>
+          <label style={labelStyle}>What do you need?</label>
+          <textarea
+            style={{ ...inputStyle, minHeight: '100px', resize: 'vertical', fontFamily: 'inherit' }}
+            value={details}
+            onChange={e => setDetails(e.target.value)}
+            placeholder="Account management, or describe the other service you need..."
+          />
+        </div>
+        {error && (
+          <p style={{ margin: 0, fontSize: '12px', color: '#e08787', background: 'rgba(224,135,135,0.08)', border: '1px solid rgba(224,135,135,0.25)', borderRadius: '6px', padding: '8px 10px' }}>
+            {error}
+          </p>
+        )}
+        <button type="submit" disabled={submitting} style={{ ...buttonStyle, opacity: submitting ? 0.6 : 1 }}>
+          {submitting ? 'Submitting…' : 'Submit request'}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+export function StorePage() {
   return (
     <div
       style={{
@@ -56,103 +230,14 @@ export function StorePage() {
         boxSizing: 'border-box',
       }}
     >
-      <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-        <h1
-          style={{
-            fontFamily: "'Georgia', 'Playfair Display', serif",
-            fontWeight: 700,
-            fontSize: 'clamp(22px, 5vw, 32px)',
-            margin: 0,
-            textAlign: 'center',
-          }}
-        >
-          Bot <span style={{ color: '#e8c840' }}>Store</span>
-        </h1>
-        <p
-          style={{
-            textAlign: 'center',
-            color: 'rgb(var(--foreground) / 0.65)',
-            marginTop: '10px',
-            fontSize: '14px',
-          }}
-        >
-          Premium bots built by EPM. Pay securely with crypto.
-        </p>
-
-        {loading && (
-          <p style={{ textAlign: 'center', marginTop: '32px', color: 'rgb(var(--foreground) / 0.5)' }}>
-            Loading bots…
-          </p>
-        )}
-        {error && (
-          <p
-            style={{
-              textAlign: 'center',
-              marginTop: '32px',
-              color: '#e08787',
-              background: 'rgba(224,135,135,0.08)',
-              border: '1px solid rgba(224,135,135,0.25)',
-              borderRadius: '8px',
-              padding: '10px',
-            }}
-          >
-            {error}
-          </p>
-        )}
-
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-            gap: '16px',
-            marginTop: '32px',
-          }}
-        >
-          {bots.map(bot => (
-            <div
-              key={bot.id}
-              style={{
-                background: 'rgba(201,168,76,0.06)',
-                border: '1px solid rgba(201,168,76,0.2)',
-                borderRadius: '12px',
-                padding: '18px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px',
-              }}
-            >
-              <h3 style={{ margin: 0, color: '#c9a84c', fontSize: '15px' }}>{bot.name}</h3>
-              <p style={{ margin: 0, fontSize: '12px', color: 'rgb(var(--foreground) / 0.7)', lineHeight: 1.5 }}>
-                {bot.description}
-              </p>
-              <div style={{ display: 'flex', gap: '6px', fontSize: '10px', color: 'rgb(var(--foreground) / 0.5)' }}>
-                <span>{bot.market}</span>
-                <span>·</span>
-                <span>{bot.risk_level} risk</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
-                <span style={{ fontWeight: 700, color: 'rgb(var(--foreground))' }}>${bot.price_usd}</span>
-                <button
-                  onClick={() => handleBuy(bot.id)}
-                  disabled={checkingOutId === bot.id}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    background: 'linear-gradient(135deg, #b8962e, #e8c840)',
-                    color: '#0a0a0a',
-                    opacity: checkingOutId === bot.id ? 0.6 : 1,
-                  }}
-                >
-                  {checkingOutId === bot.id ? 'Redirecting…' : 'Buy with crypto'}
-                </button>
-              </div>
-            </div>
-          ))}
+      <div style={{ maxWidth: '640px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+          <h1 style={{ fontFamily: "'Georgia', 'Playfair Display', serif", fontWeight: 700, fontSize: 'clamp(22px, 5vw, 32px)', margin: 0 }}>
+            Premium <span style={{ color: '#e8c840' }}>Services</span>
+          </h1>
         </div>
+        <CustomBotRequestForm />
+        <AccountManagementForm />
       </div>
     </div>
   );
