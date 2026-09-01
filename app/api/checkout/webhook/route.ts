@@ -36,10 +36,21 @@ export async function POST(req: NextRequest) {
 
   try {
     const sql = neon(process.env.DATABASE_URL!);
-    await sql`
+
+    const [order] = (await sql`
       UPDATE orders SET status = ${newStatus}, updated_at = now()
       WHERE id = ${Number(orderId)} AND gateway_payment_id = ${event.data.id}
-    `;
+      RETURNING bot_request_id
+    `) as { bot_request_id: number }[];
+
+    // Payment success is what turns a stored bot request into a real,
+    // actionable submission — this is the one place that happens.
+    if (order && newStatus === 'paid') {
+      await sql`
+        UPDATE bot_requests SET status = 'paid' WHERE id = ${order.bot_request_id}
+      `;
+    }
+
     return NextResponse.json({ received: true });
   } catch (err) {
     console.error('Failed to process webhook:', err);
