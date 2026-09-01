@@ -1,36 +1,60 @@
--- Run against your Neon database. Replaces the earlier payments.sql —
--- drop bot_products / services if you already ran the old version:
---   DROP TABLE IF EXISTS bot_products;
---   DROP TABLE IF EXISTS services;
+import { neon } from '@neondatabase/serverless';
+import { NextRequest, NextResponse } from 'next/server';
+import { createCheckout } from '@/lib/payments/deriv-merchant';
 
-CREATE TABLE IF NOT EXISTS bot_requests (
-  id SERIAL PRIMARY KEY,
-  name TEXT NOT NULL,
-  contact TEXT NOT NULL,             -- email, phone, or WhatsApp — whatever they gave
-  strategy_details TEXT NOT NULL,    -- everything the client typed about the bot they want
-  amount_usd NUMERIC(10, 2) NOT NULL, -- what the client chose to pay
-  status TEXT NOT NULL DEFAULT 'pending_payment' CHECK (status IN ('pending_payment', 'paid')),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+export const dynamic = 'force-dynamic';
 
-CREATE TABLE IF NOT EXISTS service_requests (
-  id SERIAL PRIMARY KEY,
-  service_type TEXT NOT NULL DEFAULT 'account_management', -- future services reuse this table with a different service_type
-  name TEXT NOT NULL,
-  contact TEXT NOT NULL,
-  details TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'in_progress', 'invoiced', 'paid', 'done')),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+interface BotOrderRequestBody {
+  name: string;
+  contact: string;
+  strategyDetails: string;
+  amountUsd: number;
+}
 
-CREATE TABLE IF NOT EXISTS orders (
-  id SERIAL PRIMARY KEY,
-  bot_request_id INTEGER NOT NULL REFERENCES bot_requests(id),
-  amount_usd NUMERIC(10, 2) NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'failed', 'expired')),
-  gateway_payment_id TEXT, -- id returned by Deriv Merchant for this checkout
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+export async function POST(req: NextRequest) {
+  try {
+    const body = (await req.json()) as BotOrderRequestBody;
+    const { name, contact, strategyDetails, amountUsd } = body;
 
-CREATE INDEX IF NOT EXISTS idx_orders_gateway_payment_id ON orders (gateway_payment_id);
+    if (!name?.trim() || !contact?.trim() || !strategyDetails?.trim()) {
+      return NextResponse.json({ error: 'Name, contact, and strategy details are required' }, { status: 400 });
+    }
+    if (!amountUsd || amountUsd <= 0) {
+      return NextResponse.json({ error: 'A valid payment amount is required' }, { status: 400 });
+    }
+
+    const sql = neon(process.env.DATABASE_URL!);
+
+    // The request is stored as "pending_payment" right away — it only counts
+    // as a real submission once the webhook confirms payment below.
+    const [botRequest] = (await sql`
+      INSERT INTO bot_requests (name, contact, strategy_details, amount_usd, status)
+      VALUES (${name}, ${contact}, ${strategyDetails}, ${amountUsd}, 'pending_payment')
+      RETURNING id
+    `) as { id: number }[];
+
+    const [order] = (await sql`
+      INSERT INTO orders (bot_request_id, amount_usd, status)
+      VALUES (${botRequest.id}, ${amountUsd}, 'pending')
+      RETURNING id
+    `) as { id: number }[];
+
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || req.nextUrl.origin;
+
+    const { checkoutUrl, gatewayPaymentId } = await createCheckout({
+      amountUsd,
+      orderId: order.id,
+      successUrl: `${siteUrl}/checkout/success?order=${order.id}`,
+      cancelUrl: `${siteUrl}/checkout/cancelled?order=${order.id}`,
+    });
+
+    await sql`
+      UPDATE orders SET gateway_payment_id = ${gatewayPaymentId}, updated_at = now() WHERE id = ${order.id}
+    `;
+
+    return NextResponse.json({ checkoutUrl });
+  } catch (err) {
+    console.error('Failed to submit bot request:', err);
+    return NextResponse.json({ error: 'Failed to start checkout. Please try again shortly.' }, { status: 500 });
+  }
+}
