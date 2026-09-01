@@ -6,6 +6,7 @@ import { Sun, Moon, Menu, X } from 'lucide-react';
 import { DerivWSProvider, useDerivWSContext } from '@/components/custom/deriv-ws-provider';
 import { HeroBackground } from '@/components/custom/hero-background';
 import { FreeBotsPage } from '@/components/custom/free-bots-page';
+import { StorePage } from '@/components/custom/store-page';
 
 const navLinks = [
   { label: 'Dashboard',         icon: '🏠', href: 'dashboard' },
@@ -13,7 +14,8 @@ const navLinks = [
   { label: 'Smart Trading Terminal',   icon: '🤖', href: 'botbuilder' },
   { label: 'Free Bots by EPM',  icon: '🎁', href: 'freebots' },
   { label: 'EPM Analyser Tool', icon: '📡', href: 'epmanalyser' },
-  { label: 'Trading Courses', icon: '🎓', href: 'tutorials' },
+  
+  { label: 'Premium Services', icon: '💎', href: 'store' },
 ];
 
 const iframeBases: Record<string, string> = {
@@ -225,7 +227,8 @@ function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
     { label: 'Smart Trading Terminal',   icon: '🤖', page: 'botbuilder' },
     { label: 'Free Bots by EPM',  icon: '🎁', page: 'freebots' },
     { label: 'EPM Analyser Tool', icon: '📡', page: 'epmanalyser' },
-    { label: 'Trading Courses', icon: '🎓', page: 'tutorials' },
+        { label: 'Trading Courses', icon: '🎓', page: 'tutorials' },
+    { label: 'Premium Services', icon: '💎', page: 'store' },
   ];
   return (
     <div style={{
@@ -610,7 +613,8 @@ function HomePageInner() {
         })}
         {!hasIframeBase && activePage === 'dashboard' && <DashboardPage onNavigate={handleNavClick} />}
         {!hasIframeBase && activePage === 'freebots'   && <FreeBotsPage />}
-        {!hasIframeBase && activePage !== 'dashboard' && activePage !== 'freebots' && (
+        {!hasIframeBase && activePage === 'store'      && <StorePage />}
+        {!hasIframeBase && activePage !== 'dashboard' && activePage !== 'freebots' && activePage !== 'store' && (
           <ComingSoonPage label={navLinks.find(l => l.href === activePage)?.label || activePage} />
         )}
       </div>
