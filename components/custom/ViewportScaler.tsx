@@ -4,6 +4,7 @@ import { useRef, useState, useLayoutEffect, useEffect } from 'react';
 
 const MIN_SCALE = 0.5;
 const LG_BREAKPOINT = 1024; // matches Tailwind's `lg`
+const SCALE_EPSILON = 0.005; // ignore negligible scale changes to avoid feedback loops
 
 type ScaleState = number | false | null;
 // null   = not yet measured  → render invisible to avoid layout-shift flash
@@ -13,25 +14,49 @@ type ScaleState = number | false | null;
 export default function ViewportScaler({ children }: { children: React.ReactNode }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState<ScaleState>(null);
+  // Guards against the ResizeObserver reacting to a resize that WE caused
+  // by changing `scale` (which changes the element's own width/height %).
+  // Without this, mobile keyboard open/close can trigger a feedback loop:
+  // resize -> updateScale -> scale changes -> element resizes -> observer
+  // fires -> updateScale again -> ... which freezes the main thread while
+  // the user is typing (fields go unresponsive).
+  const isUpdatingRef = useRef(false);
 
   const updateScale = () => {
+    if (isUpdatingRef.current) return;
     const el = containerRef.current;
     if (!el) return;
 
     if (window.innerWidth >= LG_BREAKPOINT) {
-      setScale(false);
+      setScale(prev => (prev === false ? prev : false));
       return;
     }
+
+    isUpdatingRef.current = true;
 
     // Temporarily clear transform so scrollHeight reflects the natural (unscaled) height
     el.style.transform = 'none';
     const naturalHeight = el.scrollHeight;
     el.style.transform = '';
 
-    if (!naturalHeight) return;
+    if (!naturalHeight) {
+      isUpdatingRef.current = false;
+      return;
+    }
 
     const newScale = Math.max(MIN_SCALE, Math.min(1, window.innerHeight / naturalHeight));
-    setScale(prev => (prev === newScale ? prev : newScale));
+    setScale(prev => {
+      if (typeof prev === 'number' && Math.abs(prev - newScale) < SCALE_EPSILON) {
+        return prev;
+      }
+      return newScale;
+    });
+
+    // Release the guard on the next frame, after layout from this update
+    // has settled, so the ResizeObserver callback it triggers is ignored.
+    requestAnimationFrame(() => {
+      isUpdatingRef.current = false;
+    });
   };
 
   // Synchronous first measurement before browser paint — prevents visible unscaled frame.
