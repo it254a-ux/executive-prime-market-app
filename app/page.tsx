@@ -27,9 +27,6 @@ const iframeBases: Record<string, string> = {
   tutorials:   'https://epm-botbuilder-uo51.vercel.app',
 };
 
-// Contact number used by the floating WhatsApp and SMS quick-contact buttons.
-const CONTACT_NUMBER = '+254759926803';
-
 // Some embedded apps use a URL hash to pick an initial internal tab on load
 // (epm-botbuilder reads location.hash against ['dashboard','bot_builder',
 // 'chart','tutorial','ai_bot_builder']). This must always be appended AFTER
@@ -72,77 +69,6 @@ function buildIframeSrc(page: string, base: string, extraParams?: Record<string,
 const THEME_REQUEST_MSG = 'epm-theme-request';
 const THEME_UPDATE_MSG = 'epm-theme-update';
 
-// Floating WhatsApp + SMS quick-contact pill. Matches the exact visual
-// language of the floating Menu/theme-toggle pill below (same background,
-// border, radius, shadow, 32x32 button cells) but sits in the opposite
-// corner and is always visible regardless of sidebar state.
-function WhatsAppButton() {
-  const digits = CONTACT_NUMBER.replace(/[^\d]/g, '');
-  return (
-    <a
-      href={`https://wa.me/${digits}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label="Chat on WhatsApp"
-      style={{
-        background: '#25D366', border: 'none', cursor: 'pointer',
-        width: '34px', height: '34px', borderRadius: '50%',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
-      }}
-    >
-      {/* Official WhatsApp glyph, white-on-brand-green to match the real app icon. */}
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="#ffffff" aria-hidden="true">
-        <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 004.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.9 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0012.04 2zm5.79 14.13c-.24.68-1.4 1.32-1.93 1.4-.5.08-1.12.11-1.81-.11a16.6 16.6 0 01-1.65-.61c-2.9-1.25-4.79-4.17-4.93-4.36-.14-.19-1.18-1.57-1.18-3 0-1.42.75-2.12 1.02-2.41.27-.29.58-.36.78-.36.19 0 .39 0 .56.01.18.01.42-.07.65.5.24.58.82 2 .89 2.15.07.15.12.32.02.52-.09.19-.14.31-.28.48-.14.16-.29.36-.42.49-.14.14-.28.28-.12.55.16.28.71 1.17 1.53 1.9 1.05.94 1.94 1.23 2.22 1.37.28.14.44.12.6-.07.16-.19.68-.79.87-1.06.18-.28.36-.23.6-.14.24.09 1.5.71 1.76.84.26.13.43.19.5.3.06.11.06.61-.18 1.29z" />
-      </svg>
-    </a>
-  );
-}
-
-function SmsButton() {
-  return (
-    <a
-      href={`sms:${CONTACT_NUMBER}`}
-      aria-label="Send a text message"
-      style={{
-        background: 'linear-gradient(135deg, #34aadc, #0b93f6)', border: 'none', cursor: 'pointer',
-        width: '34px', height: '34px', borderRadius: '50%',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
-      }}
-    >
-      {/* Filled speech-bubble glyph, styled after the Messages app icon (white on blue). */}
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="#ffffff" aria-hidden="true">
-        <path d="M12 2C6.48 2 2 5.94 2 10.8c0 2.68 1.4 5.08 3.6 6.7-.13 1.13-.53 2.5-1.47 3.87a.5.5 0 00.53.77c2.06-.5 3.6-1.4 4.63-2.13.87.2 1.78.31 2.71.31 5.52 0 10-3.94 10-8.8S17.52 2 12 2z" />
-      </svg>
-    </a>
-  );
-}
-
-// tel: is the correct, actually-functional way to trigger a phone call from
-// a web page — the OS/browser hands off to the native dialer with the
-// number pre-filled. There is no JS API to place a call directly from a
-// browser tab, so this href is the real mechanism (same one Apple/Android
-// "click to call" links use), not a stand-in.
-function CallButton() {
-  return (
-    <a
-      href={`tel:${CONTACT_NUMBER}`}
-      aria-label="Call us"
-      style={{
-        background: 'linear-gradient(135deg, #34d399, #059669)', border: 'none', cursor: 'pointer',
-        width: '34px', height: '34px', borderRadius: '50%',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
-      }}
-    >
-      {/* Filled phone-receiver glyph, styled after standard call-app icons (white on green). */}
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="#ffffff" aria-hidden="true">
-        <path d="M6.62 10.79a15.05 15.05 0 006.59 6.59l2.2-2.2a1 1 0 011.02-.24c1.12.37 2.33.57 3.57.57a1 1 0 011 1V20a1 1 0 01-1 1C10.61 21 3 13.39 3 4a1 1 0 011-1h3.5a1 1 0 011 1c0 1.24.2 2.45.57 3.57a1 1 0 01-.25 1.02l-2.2 2.2z" />
-      </svg>
-    </a>
-  );
-}
 
 /**
  * Sidebar account switcher. Shows Real/Demo + account ID only — no balance.
@@ -487,21 +413,6 @@ function HomePageInner() {
           )}
         </div>
       )}
-
-      {/* Floating WhatsApp + SMS + Call quick-contact icons — top center, nudged
-          slightly right of true center, sitting inline with the embedded
-          app's own top nav row. Three separate branded circular buttons
-          (not a joined pill) using authentic app-style icon glyphs. */}
-      <div
-        style={{
-          position: 'fixed', top: '4px', left: 'calc(50% + 40px)', transform: 'translateX(-50%)', zIndex: 150,
-          display: 'flex', alignItems: 'center', gap: '8px',
-        }}
-      >
-        <WhatsAppButton />
-        <SmsButton />
-        <CallButton />
-      </div>
 
       {/* Backdrop — click to close, sits behind the panel but above the page content. */}
       {sidebarOpen && (
